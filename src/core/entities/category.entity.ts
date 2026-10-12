@@ -1,9 +1,4 @@
-import {
-  Collection,
-  Entity,
-  ManyToMany,
-  Property,
-} from '@mikro-orm/core';
+import { Collection, Entity, ManyToMany, Property } from '@mikro-orm/core';
 import { BaseEntity } from 'src/core/entities/base.entity';
 import { BookEntity } from 'src/core/entities/book.entity';
 

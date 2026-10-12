@@ -1,10 +1,4 @@
-import {
-  Collection,
-  Entity,
-  Enum,
-  OneToMany,
-  Property,
-} from '@mikro-orm/core';
+import { Collection, Entity, Enum, OneToMany, Property } from '@mikro-orm/core';
 import { BaseEntity } from 'src/core/entities/base.entity';
 import { CartItemEntity } from 'src/core/entities/cart-item.entity';
 import { FavoriteEntity } from 'src/core/entities/favorite.entity';

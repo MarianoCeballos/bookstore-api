@@ -7,7 +7,9 @@ import { BooksController } from 'src/modules/books/books.controller';
 import { BooksService } from 'src/modules/books/books.service';
 
 @Module({
-  imports: [MikroOrmModule.forFeature([AuthorEntity, BookEntity, CategoryEntity])],
+  imports: [
+    MikroOrmModule.forFeature([AuthorEntity, BookEntity, CategoryEntity]),
+  ],
   controllers: [BooksController],
   providers: [BooksService],
   exports: [BooksService],

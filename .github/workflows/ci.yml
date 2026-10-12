@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [develop]
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: corepack enable
+
+      - name: Install
+        run: yarn install --immutable
+
+      - name: Lint
+        run: yarn lint
+
+      - name: Build
+        run: yarn build
+
+      - name: Test
+        run: yarn test --ci --coverage --coverageReporters=json-summary --json --outputFile=test-results.json
+
+      - name: Comment test results on PR
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- ci-test-results -->';
+            const status = '${{ job.status }}';
+            let body = `${marker}\n## ${status === 'success' ? '✅' : '❌'} Test results (API)\n\n`;
+
+            if (fs.existsSync('test-results.json')) {
+              const r = JSON.parse(fs.readFileSync('test-results.json', 'utf8'));
+              body += `| Suites | Tests | Passed | Failed | Skipped |\n|---|---|---|---|---|\n`;
+              body += `| ${r.numTotalTestSuites} | ${r.numTotalTests} | ${r.numPassedTests} | ${r.numFailedTests} | ${r.numPendingTests} |\n\n`;
+
+              if (fs.existsSync('coverage/coverage-summary.json')) {
+                const t = JSON.parse(fs.readFileSync('coverage/coverage-summary.json', 'utf8')).total;
+                body += `**Coverage:** statements ${t.statements.pct}% · branches ${t.branches.pct}% · functions ${t.functions.pct}% · lines ${t.lines.pct}%\n\n`;
+              }
+
+              const failed = r.testResults.flatMap(s =>
+                s.assertionResults.filter(a => a.status === 'failed').map(a => ({ file: s.name, name: a.fullName, msg: a.failureMessages.join('\n') })));
+              if (failed.length) {
+                body += '### Failed tests\n';
+                for (const f of failed.slice(0, 20)) {
+                  const msg = f.msg.replace(/\u001b\[[0-9;]*m/g, '').slice(0, 1500);
+                  body += `<details><summary>${f.name}</summary>\n\n\`${f.file.replace(process.env.GITHUB_WORKSPACE + '/', '')}\`\n\n\`\`\`\n${msg}\n\`\`\`\n</details>\n`;
+                }
+              }
+            } else {
+              body += `Tests did not produce results (a previous step failed: install, lint or build). See the [workflow run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}).\n`;
+            }
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }

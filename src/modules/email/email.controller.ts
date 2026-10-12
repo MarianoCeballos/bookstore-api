@@ -1,22 +1,13 @@
 import { Body, Controller, Post } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsString, MaxLength } from 'class-validator';
+import {
+  ApiBadRequestResponse,
+  ApiCreatedResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
+import { MessageResponseDto } from 'src/core/dto/message-response.dto';
+import { ContactEmailDto } from 'src/modules/email/dto/contact-email.dto';
 import { EmailService } from 'src/modules/email/email.service';
-
-class ContactEmailDto {
-  @IsEmail()
-  sender!: string;
-
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(120)
-  title!: string;
-
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(4000)
-  message!: string;
-}
 
 @ApiTags('emails')
 @Controller('emails')
@@ -25,10 +16,16 @@ export class EmailController {
 
   @Post('contact')
   @ApiOperation({ summary: 'Send a contact message' })
+  @ApiCreatedResponse({ type: MessageResponseDto })
+  @ApiBadRequestResponse({ description: 'Validation failed' })
   async sendContact(
     @Body() input: ContactEmailDto,
   ): Promise<{ message: string }> {
-    await this.emailService.sendContact(input.sender, input.title, input.message);
+    await this.emailService.sendContact(
+      input.sender,
+      input.title,
+      input.message,
+    );
     return { message: 'Thanks for contacting us!' };
   }
 }

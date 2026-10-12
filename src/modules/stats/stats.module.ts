@@ -9,7 +9,12 @@ import { StatsService } from 'src/modules/stats/stats.service';
 
 @Module({
   imports: [
-    MikroOrmModule.forFeature([BookEntity, CategoryEntity, OrderEntity, UserEntity]),
+    MikroOrmModule.forFeature([
+      BookEntity,
+      CategoryEntity,
+      OrderEntity,
+      UserEntity,
+    ]),
   ],
   controllers: [StatsController],
   providers: [StatsService],

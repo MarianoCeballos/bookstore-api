@@ -1,5 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { CategoryResponseDto } from 'src/modules/categories/dto/category-response.dto';
 import { InjectRepository } from '@mikro-orm/nestjs';
 import { EntityRepository } from '@mikro-orm/postgresql';
 import { CategoryEntity } from 'src/core/entities/category.entity';
@@ -14,6 +15,7 @@ export class CategoriesController {
 
   @Get()
   @ApiOperation({ summary: 'List book categories' })
+  @ApiOkResponse({ type: [CategoryResponseDto] })
   async getCategories(): Promise<
     Array<{ ID: number; category: string; soldCopies: number }>
   > {

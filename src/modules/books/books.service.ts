@@ -2,19 +2,54 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
-} from "@nestjs/common";
-import { InjectRepository } from "@mikro-orm/nestjs";
-import { EntityRepository, FilterQuery } from "@mikro-orm/postgresql";
-import { AuthorEntity } from "src/core/entities/author.entity";
-import { BookEntity } from "src/core/entities/book.entity";
-import { CategoryEntity } from "src/core/entities/category.entity";
-import { ReviewEntity } from "src/core/entities/review.entity";
-import { DEFAULT_PAGE_SIZE } from "src/core/constants/api.constants";
-import { CreateBookDto } from "src/modules/books/dto/create-book.dto";
-import { BookQueryDto } from "src/modules/books/dto/book-query.dto";
+} from '@nestjs/common';
+import { InjectRepository } from '@mikro-orm/nestjs';
+import { EntityRepository, FilterQuery } from '@mikro-orm/postgresql';
+import { AuthorEntity } from 'src/core/entities/author.entity';
+import { BookEntity } from 'src/core/entities/book.entity';
+import { CategoryEntity } from 'src/core/entities/category.entity';
+import { ReviewEntity } from 'src/core/entities/review.entity';
+import { DEFAULT_PAGE_SIZE } from 'src/core/constants/api.constants';
+import { CreateBookDto } from 'src/modules/books/dto/create-book.dto';
+import { BookQueryDto } from 'src/modules/books/dto/book-query.dto';
 
 const escapeLike = (value: string): string =>
-  value.trim().replace(/[\\%_]/g, "\\$&");
+  value.trim().replace(/[\\%_]/g, '\\$&');
+
+export interface ReviewView {
+  ID: ReviewEntity['ID'];
+  title: ReviewEntity['title'];
+  review: ReviewEntity['review'];
+  rating: ReviewEntity['rating'];
+  createdAt: ReviewEntity['createdAt'];
+  bookID: number;
+  userID: number;
+  user: {
+    ID: number;
+    username: ReviewEntity['user']['username'];
+    profilePic: ReviewEntity['user']['profilePic'];
+  };
+  reports: number[];
+}
+
+export interface BookView {
+  ID: BookEntity['ID'];
+  title: BookEntity['title'];
+  description: BookEntity['description'];
+  price: string;
+  image: BookEntity['image'];
+  authors: string[];
+  categories: string[];
+  publisher: BookEntity['publisher'];
+  publishedDate: BookEntity['publishedDate'];
+  pageCount: BookEntity['pageCount'];
+  rating: number;
+  language: BookEntity['language'];
+  avgReadingTime: BookEntity['avgReadingTime'];
+  soldCopies: BookEntity['soldCopies'];
+  reviews: ReviewView[];
+  createdAt: BookEntity['createdAt'];
+}
 
 @Injectable()
 export class BooksService {
@@ -27,7 +62,7 @@ export class BooksService {
     private readonly categories: EntityRepository<CategoryEntity>,
   ) {}
 
-  async findAll(query: BookQueryDto): Promise<unknown[]> {
+  async findAll(query: BookQueryDto): Promise<BookView[]> {
     const where: FilterQuery<BookEntity> = {};
     if (query.title?.trim()) {
       where.title = { $ilike: `%${escapeLike(query.title)}%` };
@@ -42,13 +77,14 @@ export class BooksService {
     }
     const options = {
       populate: [
-        "authors",
-        "categories",
-        "reviews",
-        "reviews.user",
-        "reviews.reports",
+        'authors',
+        'categories',
+        'reviews',
+        'reviews.user',
+        'reviews.reports',
       ] as const,
-      orderBy: { title: "ASC" as const },
+
+      orderBy: { title: 'ASC' as const },
       ...(query.page || query.pageSize
         ? {
             limit: query.pageSize ?? DEFAULT_PAGE_SIZE,
@@ -57,20 +93,20 @@ export class BooksService {
           }
         : {}),
     };
-    const books = await this.books.find(where, options);
+    const books: BookEntity[] = await this.books.find(where, options);
     return books.map((book) => this.toView(book));
   }
 
-  async findById(id: number): Promise<Record<string, unknown>> {
+  async findById(id: number): Promise<BookView> {
     const book = await this.books.findOne(
       { ID: id },
       {
         populate: [
-          "authors",
-          "categories",
-          "reviews",
-          "reviews.user",
-          "reviews.reports",
+          'authors',
+          'categories',
+          'reviews',
+          'reviews.user',
+          'reviews.reports',
         ] as const,
       },
     );
@@ -81,13 +117,13 @@ export class BooksService {
   }
 
   async homeBooks(): Promise<{
-    bestSellers: unknown[];
-    mostPopular: unknown[];
-    newReleases: unknown[];
+    bestSellers: BookView[];
+    mostPopular: BookView[];
+    newReleases: BookView[];
   }> {
     const books = await this.books.find(
       {},
-      { populate: ["authors", "categories"], orderBy: { title: "ASC" } },
+      { populate: ['authors', 'categories'], orderBy: { title: 'ASC' } },
     );
     const map = (book: BookEntity) => this.toView(book);
     return {
@@ -115,7 +151,7 @@ export class BooksService {
   async create(input: CreateBookDto): Promise<{ message: string }> {
     const title = input.title.trim().toLowerCase();
     if (await this.books.findOne({ title: { $ilike: title } })) {
-      throw new ConflictException("Book title already exists");
+      throw new ConflictException('Book title already exists');
     }
     const authors = await Promise.all(
       input.authors.map((item) =>
@@ -147,15 +183,16 @@ export class BooksService {
       publishedDate: input.publishedDate,
       pageCount: input.pageCount,
       language: input.language,
-      rating: "0",
+      rating: '0',
       avgReadingTime: this.readingTime(input.pageCount),
     });
     book.authors.add(authors);
     book.categories.add(categories);
     await this.books
       .getEntityManager()
-      .persistAndFlush([...authors, ...categories, book]);
-    return { message: "Book created successfully" };
+      .persist([...authors, ...categories, book])
+      .flush();
+    return { message: 'Book created successfully' };
   }
 
   async update(id: number, input: CreateBookDto): Promise<{ message: string }> {
@@ -194,8 +231,9 @@ export class BooksService {
     book.categories.set(categories);
     await this.books
       .getEntityManager()
-      .persistAndFlush([...authors, ...categories, book]);
-    return { message: "Book modified successfully" };
+      .persist([...authors, ...categories, book])
+      .flush();
+    return { message: 'Book modified successfully' };
   }
 
   async delete(id: number): Promise<{ message: string }> {
@@ -203,7 +241,7 @@ export class BooksService {
     if (!book) {
       throw new NotFoundException(`Book not found with id ${id}`);
     }
-    await this.books.getEntityManager().removeAndFlush(book);
+    await this.books.getEntityManager().remove(book).flush();
     return { message: `Book with id ${id} deleted successfully` };
   }
 
@@ -215,8 +253,8 @@ export class BooksService {
     return this.categories.findOne({ category: name });
   }
 
-  toView(book: BookEntity): Record<string, unknown> {
-    const reviews = book.reviews.isInitialized()
+  toView(book: BookEntity): BookView {
+    const reviews: ReviewView[] = book.reviews.isInitialized()
       ? book.reviews.getItems().map((review: ReviewEntity) => ({
           ID: review.ID,
           title: review.title,
@@ -258,13 +296,13 @@ export class BooksService {
   }
 
   normalizePrice(price: string): string {
-    const [whole = "0", fraction = ""] = price.split(".");
-    return `${BigInt(whole)}.${fraction.padEnd(2, "0").slice(0, 2)}`;
+    const [whole = '0', fraction = ''] = price.split('.');
+    return `${BigInt(whole)}.${fraction.padEnd(2, '0').slice(0, 2)}`;
   }
 
   private readingTime(pageCount?: number): string {
     if (!pageCount) {
-      return "Cannot estimate reading time";
+      return 'Cannot estimate reading time';
     }
     const minutes = (300 * pageCount) / 250;
     const hours = Math.trunc(minutes / 60);

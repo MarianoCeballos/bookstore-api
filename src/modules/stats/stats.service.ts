@@ -5,6 +5,7 @@ import { BookEntity } from 'src/core/entities/book.entity';
 import { CategoryEntity } from 'src/core/entities/category.entity';
 import { OrderEntity } from 'src/core/entities/order.entity';
 import { UserEntity } from 'src/core/entities/user.entity';
+import { StatsResponseDto } from 'src/modules/stats/dto/stats-response.dto';
 
 @Injectable()
 export class StatsService {
@@ -19,16 +20,34 @@ export class StatsService {
     private readonly users: EntityRepository<UserEntity>,
   ) {}
 
-  async getStats(): Promise<Record<string, unknown>> {
+  async getStats(): Promise<StatsResponseDto> {
     const [books, categories, orders, users] = await Promise.all([
-      this.books.find({ soldCopies: { $gt: 0 } }, { fields: ['ID', 'title', 'image', 'soldCopies'] }),
-      this.categories.find({ soldCopies: { $gt: 0 } }, { fields: ['ID', 'category', 'soldCopies'] }),
-      this.orders.findAll({ populate: ['items'], orderBy: { createdAt: 'DESC' } }),
+      this.books.find(
+        { soldCopies: { $gt: 0 } },
+        { fields: ['ID', 'title', 'image', 'soldCopies'] },
+      ),
+      this.categories.find(
+        { soldCopies: { $gt: 0 } },
+        { fields: ['ID', 'category', 'soldCopies'] },
+      ),
+      this.orders.findAll({
+        populate: ['items'],
+        orderBy: { createdAt: 'DESC' },
+      }),
       this.users.findAll({ fields: ['createdAt'] }),
     ]);
     return {
-      books,
-      categories,
+      books: books.map(({ ID, title, image, soldCopies }) => ({
+        ID,
+        title,
+        image,
+        soldCopies,
+      })),
+      categories: categories.map(({ ID, category, soldCopies }) => ({
+        ID,
+        category,
+        soldCopies,
+      })),
       users: {
         totalUsers: users.length,
         createdDate: users.map((user) => ({ createdAt: user.createdAt })),

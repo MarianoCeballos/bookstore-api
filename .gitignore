@@ -11,3 +11,6 @@ openapi.json
 !.yarn/releases
 !.yarn/versions
 *.tsbuildinfo
+temp/
+
+test-results.json

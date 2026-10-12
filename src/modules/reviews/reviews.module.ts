@@ -11,7 +11,12 @@ import { ReviewsService } from 'src/modules/reviews/reviews.service';
 @Module({
   imports: [
     BooksModule,
-    MikroOrmModule.forFeature([BookEntity, ReviewEntity, ReviewReportEntity, UserEntity]),
+    MikroOrmModule.forFeature([
+      BookEntity,
+      ReviewEntity,
+      ReviewReportEntity,
+      UserEntity,
+    ]),
   ],
   controllers: [ReviewsController],
   providers: [ReviewsService],
