@@ -23,6 +23,7 @@ describe('AuthService', () => {
     } as unknown as EntityRepository<UserEntity>;
     const config = {
       getOrThrow: jest.fn().mockReturnValue('http://localhost:5173'),
+      get: jest.fn().mockReturnValue('reader@example.com'),
     } as unknown as ConfigService;
     const email = {
       sendConfirmation,
@@ -51,6 +52,7 @@ describe('AuthService', () => {
     const sentUrl = new URL(confirmationUrl);
     expect(user.username).toBe('reader');
     expect(user.email).toBe('reader@example.com');
+    expect(user.role).toBe('admin');
     expect(await argon2.verify(user.passwordHash ?? '', input.password)).toBe(
       true,
     );

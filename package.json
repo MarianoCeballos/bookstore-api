@@ -21,7 +21,7 @@
     "migration:down": "npx mikro-orm migration:down",
     "generate:seed": "npx mikro-orm seeder:run",
     "openapi:write": "yarn build && node -r module-alias/register dist/generate-openapi.js",
-    "seed": "mikro-orm seeder:run --config ./mikro-orm.config.js",
+    "seed": "mikro-orm seeder:run --config ./dist/core/database/mikro-orm.config.js",
     "data:import": "yarn build && node -r module-alias/register dist/core/database/import-legacy.js",
     "sanitycheck": "yarn typecheck && yarn lint && yarn test --runInBand && yarn build",
     "prepare": "husky"

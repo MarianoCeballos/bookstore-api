@@ -71,6 +71,7 @@ const entities = [
         EMAIL_PASSWORD: Joi.string().allow(''),
         EMAIL_FROM: Joi.string().allow(''),
         CONTACT_EMAIL: Joi.string().email().allow(''),
+        ADMIN_EMAILS: Joi.string().allow(''),
       }).unknown(true),
     }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }]),
