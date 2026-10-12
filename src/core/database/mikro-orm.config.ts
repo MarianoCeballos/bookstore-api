@@ -17,7 +17,10 @@ import { UserEntity } from 'src/core/entities/user.entity';
 export default defineConfig({
   driverOptions: {
     connection: {
-      ssl: process.env.NODE_ENV === 'production',
+      ssl:
+        process.env.NODE_ENV === 'production'
+          ? { rejectUnauthorized: false }
+          : false,
     },
   },
   clientUrl: process.env.DATABASE_URL,
