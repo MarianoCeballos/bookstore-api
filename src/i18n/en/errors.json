@@ -1,0 +1,5 @@
+{
+  "generic": "The request could not be completed.",
+  "unauthorized": "Please sign in to continue.",
+  "forbidden": "You do not have permission to perform this action."
+}

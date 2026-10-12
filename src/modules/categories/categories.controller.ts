@@ -1,0 +1,29 @@
+import { Controller, Get } from '@nestjs/common';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { InjectRepository } from '@mikro-orm/nestjs';
+import { EntityRepository } from '@mikro-orm/postgresql';
+import { CategoryEntity } from 'src/core/entities/category.entity';
+
+@ApiTags('categories')
+@Controller('categories')
+export class CategoriesController {
+  constructor(
+    @InjectRepository(CategoryEntity)
+    private readonly categories: EntityRepository<CategoryEntity>,
+  ) {}
+
+  @Get()
+  @ApiOperation({ summary: 'List book categories' })
+  async getCategories(): Promise<
+    Array<{ ID: number; category: string; soldCopies: number }>
+  > {
+    const categories = await this.categories.findAll({
+      orderBy: { category: 'ASC' },
+    });
+    return categories.map(({ ID, category, soldCopies }) => ({
+      ID,
+      category,
+      soldCopies,
+    }));
+  }
+}
