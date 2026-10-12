@@ -94,7 +94,10 @@ const entities = [
         connect: process.env.OPENAPI_ONLY !== 'true',
         driverOptions: {
           connection: {
-            ssl: config.get<string>('NODE_ENV') === 'production',
+            ssl:
+              config.get<string>('NODE_ENV') === 'production'
+                ? { rejectUnauthorized: false }
+                : false,
           },
         },
         entities,
