@@ -25,12 +25,15 @@ function stringify(value: unknown): string {
   } catch {
     return '[unserializable]';
   }
-  return text.length > MAX_BODY_LENGTH ? `${text.slice(0, MAX_BODY_LENGTH)}...[truncated]` : text;
+  return text.length > MAX_BODY_LENGTH
+    ? `${text.slice(0, MAX_BODY_LENGTH)}...[truncated]`
+    : text;
 }
 
 function parseResponseBody(chunk: unknown, contentType: string): unknown {
   if (chunk === undefined || chunk === null) return undefined;
-  if (!contentType.includes('json')) return `[${contentType || 'no content-type'}]`;
+  if (!contentType.includes('json'))
+    return `[${contentType || 'no content-type'}]`;
   const raw = Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk);
   try {
     return JSON.parse(raw);
@@ -39,10 +42,15 @@ function parseResponseBody(chunk: unknown, contentType: string): unknown {
   }
 }
 
-export function httpLoggerMiddleware(request: Request, response: Response, next: NextFunction): void {
+export function httpLoggerMiddleware(
+  request: Request,
+  response: Response,
+  next: NextFunction,
+): void {
   const startedAt = Date.now();
   const { method, originalUrl } = request;
-  const requestId = (request.headers['x-request-id'] as string | undefined) ?? randomUUID();
+  const requestId =
+    (request.headers['x-request-id'] as string | undefined) ?? randomUUID();
   response.setHeader('x-request-id', requestId);
   const tag = `[${requestId}]`;
   logger.log(

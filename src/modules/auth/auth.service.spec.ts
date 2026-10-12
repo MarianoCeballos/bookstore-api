@@ -10,7 +10,8 @@ import { RegisterDto } from 'src/modules/auth/dto/register.dto';
 
 describe('AuthService', () => {
   it('stores a one-day confirmation hash and sends a confirmation link', async () => {
-    const entityManager = { persistAndFlush: jest.fn().mockResolvedValue(undefined) };
+    const flush = jest.fn().mockResolvedValue(undefined);
+    const entityManager = { persist: jest.fn().mockReturnValue({ flush }) };
     const createUser = jest.fn((data: Partial<UserEntity>) =>
       Object.assign(new UserEntity(), data),
     );
@@ -50,17 +51,25 @@ describe('AuthService', () => {
     const sentUrl = new URL(confirmationUrl);
     expect(user.username).toBe('reader');
     expect(user.email).toBe('reader@example.com');
-    expect(await argon2.verify(user.passwordHash ?? '', input.password)).toBe(true);
-    expect(user.confirmationTokenHash).toBe(
-      createHash('sha256').update(sentUrl.searchParams.get('token') ?? '').digest('hex'),
+    expect(await argon2.verify(user.passwordHash ?? '', input.password)).toBe(
+      true,
     );
-    expect(user.confirmationTokenExpiresAt?.getTime()).toBeGreaterThan(Date.now());
-    expect(entityManager.persistAndFlush).toHaveBeenCalledWith(user);
+    expect(user.confirmationTokenHash).toBe(
+      createHash('sha256')
+        .update(sentUrl.searchParams.get('token') ?? '')
+        .digest('hex'),
+    );
+    expect(user.confirmationTokenExpiresAt?.getTime()).toBeGreaterThan(
+      Date.now(),
+    );
+    expect(entityManager.persist).toHaveBeenCalledWith(user);
   });
 
   it('rejects expired email confirmation tokens', async () => {
     const user = Object.assign(new UserEntity(), {
-      confirmationTokenHash: createHash('sha256').update('expired-token').digest('hex'),
+      confirmationTokenHash: createHash('sha256')
+        .update('expired-token')
+        .digest('hex'),
       confirmationTokenExpiresAt: new Date(Date.now() - 1),
     });
     const users = {

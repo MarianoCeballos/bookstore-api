@@ -14,7 +14,12 @@ import { UsersService } from 'src/modules/users/users.service';
   imports: [
     AuthModule,
     BooksModule,
-    MikroOrmModule.forFeature([BookEntity, CartItemEntity, FavoriteEntity, UserEntity]),
+    MikroOrmModule.forFeature([
+      BookEntity,
+      CartItemEntity,
+      FavoriteEntity,
+      UserEntity,
+    ]),
   ],
   controllers: [UserLookupsController, UsersController],
   providers: [UsersService],

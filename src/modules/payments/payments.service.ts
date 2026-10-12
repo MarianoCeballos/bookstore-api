@@ -22,6 +22,7 @@ import { AuthenticatedUser } from 'src/core/types/authenticated-user.type';
 import { EmailService } from 'src/modules/email/email.service';
 import { CreateCheckoutDto } from 'src/modules/payments/dto/create-checkout.dto';
 import { isValidMercadoPagoSignature } from 'src/modules/payments/payment-signature';
+import { OrderViewDto } from 'src/modules/payments/dto/payment-response.dto';
 
 @Injectable()
 export class PaymentsService {
@@ -70,7 +71,7 @@ export class PaymentsService {
       gift: options.gift ?? false,
       giftRecipient: options.giftRecipient,
     });
-    await this.orders.getEntityManager().persistAndFlush(order);
+    await this.orders.getEntityManager().persist(order).flush();
     const lines = snapshots.map(({ book, title, unitPrice }) =>
       this.orderItems.create({
         order,
@@ -80,7 +81,7 @@ export class PaymentsService {
         quantity: 1,
       }),
     );
-    await this.orderItems.getEntityManager().persistAndFlush(lines);
+    await this.orderItems.getEntityManager().persist(lines).flush();
     try {
       const result = await new Preference(this.mercadoPagoClient()).create({
         body: {
@@ -105,13 +106,15 @@ export class PaymentsService {
         },
       });
       if (!result.id) {
-        throw new ServiceUnavailableException('Payment preference was not created');
+        throw new ServiceUnavailableException(
+          'Payment preference was not created',
+        );
       }
       order.providerPreferenceId = result.id;
       await this.orders.getEntityManager().flush();
       return { preferenceId: result.id, orderId: order.ID };
     } catch (error) {
-      await this.orders.getEntityManager().removeAndFlush(order);
+      await this.orders.getEntityManager().remove(order).flush();
       throw error;
     }
   }
@@ -119,7 +122,7 @@ export class PaymentsService {
   async verifyPayment(
     paymentId: string,
     currentUser?: AuthenticatedUser,
-  ): Promise<Record<string, unknown>> {
+  ): Promise<OrderViewDto> {
     const response = await new Payment(this.mercadoPagoClient()).get({
       id: paymentId,
     });
@@ -137,12 +140,17 @@ export class PaymentsService {
     if (!order) {
       throw new NotFoundException('Order not found');
     }
-    if (currentUser && order.user.ID !== currentUser.ID && currentUser.role !== UserRole.ADMIN) {
+    if (
+      currentUser &&
+      order.user.ID !== currentUser.ID &&
+      currentUser.role !== UserRole.ADMIN
+    ) {
       throw new ForbiddenException('You may only access your own orders');
     }
     if (
       response.status === 'approved' &&
-      this.toCents(String(response.transaction_amount)) !== this.toCents(order.total)
+      this.toCents(String(response.transaction_amount)) !==
+        this.toCents(order.total)
     ) {
       throw new UnauthorizedException('Payment total does not match the order');
     }
@@ -179,15 +187,19 @@ export class PaymentsService {
       !requestId ||
       !isValidMercadoPagoSignature(secret, signature, requestId, paymentId)
     ) {
-      throw new UnauthorizedException('Payment notification signature is invalid');
+      throw new UnauthorizedException(
+        'Payment notification signature is invalid',
+      );
     }
     await this.verifyPayment(paymentId);
     return { received: true };
   }
 
-  async findAll(currentUser: AuthenticatedUser): Promise<Array<Record<string, unknown>>> {
+  async findAll(currentUser: AuthenticatedUser): Promise<OrderViewDto[]> {
     const where =
-      currentUser.role === UserRole.ADMIN ? {} : { user: { ID: currentUser.ID } };
+      currentUser.role === UserRole.ADMIN
+        ? {}
+        : { user: { ID: currentUser.ID } };
     const orders = await this.orders.find(where, {
       populate: ['items', 'items.book', 'user'],
       orderBy: { createdAt: 'DESC' },
@@ -198,7 +210,7 @@ export class PaymentsService {
   async findById(
     id: string,
     currentUser: AuthenticatedUser,
-  ): Promise<Record<string, unknown>> {
+  ): Promise<OrderViewDto> {
     const numericId = /^\d+$/.test(id) ? Number(id) : undefined;
     const order = await this.orders.findOne(
       numericId === undefined
@@ -209,7 +221,10 @@ export class PaymentsService {
     if (!order) {
       throw new NotFoundException(`Payment with ID ${id} not found`);
     }
-    if (order.user.ID !== currentUser.ID && currentUser.role !== UserRole.ADMIN) {
+    if (
+      order.user.ID !== currentUser.ID &&
+      currentUser.role !== UserRole.ADMIN
+    ) {
       throw new ForbiddenException('You may only access your own orders');
     }
     return this.toView(order);
@@ -278,7 +293,7 @@ export class PaymentsService {
     }
   }
 
-  private toView(order: OrderEntity): Record<string, unknown> {
+  private toView(order: OrderEntity): OrderViewDto {
     return {
       ID: order.ID,
       mpID: order.providerPaymentId ?? String(order.ID),

@@ -9,7 +9,25 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBadRequestResponse,
+  ApiBearerAuth,
+  ApiBody,
+  ApiCreatedResponse,
+  ApiForbiddenResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiServiceUnavailableResponse,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
+import {
+  CheckoutResponseDto,
+  OrderViewDto,
+  WebhookBodyDto,
+  WebhookResponseDto,
+} from 'src/modules/payments/dto/payment-response.dto';
 import { CurrentUser } from 'src/core/decorators/current-user.decorator';
 import { JwtAuthGuard } from 'src/core/guards/jwt-auth.guard';
 import { AuthenticatedUser } from 'src/core/types/authenticated-user.type';
@@ -25,7 +43,16 @@ export class PaymentsController {
   @Post()
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Create an order and MercadoPago checkout preference' })
+  @ApiOperation({
+    summary: 'Create an order and MercadoPago checkout preference',
+  })
+  @ApiCreatedResponse({ type: CheckoutResponseDto })
+  @ApiBadRequestResponse({ description: 'Cart is empty or request is invalid' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({ description: 'Account is unavailable for checkout' })
+  @ApiServiceUnavailableResponse({
+    description: 'Payment provider unavailable',
+  })
   createPreference(
     @Body() input: CreateCheckoutDto,
     @CurrentUser() user: AuthenticatedUser,
@@ -37,15 +64,28 @@ export class PaymentsController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Verify a provider payment and finalize its order' })
+  @ApiCreatedResponse({ type: OrderViewDto })
+  @ApiBadRequestResponse({ description: 'Validation failed' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({ description: 'Not allowed to access this resource' })
+  @ApiNotFoundResponse({ description: 'Order not found' })
   verify(
     @Body() input: VerifyPaymentDto,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<Record<string, unknown>> {
+  ): Promise<OrderViewDto> {
     return this.payments.verifyPayment(input.paymentId, user);
   }
 
   @Post('webhook')
-  @ApiOperation({ summary: 'Process a signed MercadoPago payment notification' })
+  @ApiOperation({
+    summary: 'Process a signed MercadoPago payment notification',
+  })
+  @ApiBody({ type: WebhookBodyDto })
+  @ApiCreatedResponse({ type: WebhookResponseDto })
+  @ApiBadRequestResponse({
+    description: 'Payment ID is missing from notification',
+  })
+  @ApiUnauthorizedResponse({ description: 'Notification signature is invalid' })
   webhook(
     @Headers('x-signature') signature: string | undefined,
     @Headers('x-request-id') requestId: string | undefined,
@@ -62,19 +102,27 @@ export class PaymentsController {
   @Get()
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  getOrders(
-    @CurrentUser() user: AuthenticatedUser,
-  ): Promise<Array<Record<string, unknown>>> {
+  @ApiOperation({
+    summary: 'List the current user orders (all orders for admins)',
+  })
+  @ApiOkResponse({ type: [OrderViewDto] })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  getOrders(@CurrentUser() user: AuthenticatedUser): Promise<OrderViewDto[]> {
     return this.payments.findAll(user);
   }
 
   @Get(':ID')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get an order by order ID or provider payment ID' })
+  @ApiOkResponse({ type: OrderViewDto })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({ description: 'Not allowed to access this resource' })
+  @ApiNotFoundResponse({ description: 'Order not found' })
   getOrder(
     @Param('ID') id: string,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<Record<string, unknown>> {
+  ): Promise<OrderViewDto> {
     return this.payments.findById(id, user);
   }
 }

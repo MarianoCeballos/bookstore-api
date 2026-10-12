@@ -52,9 +52,14 @@ const entities = [
           .valid('development', 'test', 'production')
           .default('development'),
         PORT: Joi.number().port().default(3001),
-        DATABASE_URL: Joi.string().uri({ scheme: ['postgres', 'postgresql'] }).required(),
+        DATABASE_URL: Joi.string()
+          .uri({ scheme: ['postgres', 'postgresql'] })
+          .required(),
         JWT_SECRET: Joi.string().min(32).required(),
-        JWT_EXPIRES_IN_SECONDS: Joi.number().integer().positive().default(86400),
+        JWT_EXPIRES_IN_SECONDS: Joi.number()
+          .integer()
+          .positive()
+          .default(86400),
         FRONTEND_URL: Joi.string().uri().required(),
         MERCADOPAGO_ACCESS_TOKEN: Joi.string().allow(''),
         MERCADOPAGO_WEBHOOK_SECRET: Joi.string().allow(''),
@@ -73,7 +78,9 @@ const entities = [
       fallbackLanguage: 'en',
       loaderOptions: {
         path: join(__dirname, 'i18n'),
-        watch: process.env.NODE_ENV !== 'production' && process.env.OPENAPI_ONLY !== 'true',
+        watch:
+          process.env.NODE_ENV !== 'production' &&
+          process.env.OPENAPI_ONLY !== 'true',
       },
       resolvers: [AcceptLanguageResolver],
     }),

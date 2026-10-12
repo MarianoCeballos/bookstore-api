@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserRole } from 'src/core/enums/user-role.enum';
 
 export class AuthResponseDto {
@@ -17,10 +17,10 @@ export class AuthResponseDto {
   @ApiProperty()
   surname!: string;
 
-  @ApiProperty({ required: false })
+  @ApiPropertyOptional()
   profilePic?: string;
 
-  @ApiProperty({ enum: UserRole })
+  @ApiProperty({ enum: UserRole, enumName: 'UserRole' })
   role!: UserRole;
 
   @ApiProperty()
@@ -35,6 +35,25 @@ export class AuthResponseDto {
   @ApiProperty()
   suspendedTimes!: number;
 
+  @ApiPropertyOptional({ type: String, format: 'date-time' })
+  dateSuspended?: Date;
+
+  @ApiProperty({ type: String, format: 'date-time' })
+  createdAt!: Date;
+
   @ApiProperty()
   token!: string;
+}
+
+export class ResetTokenDataDto {
+  @ApiProperty()
+  resetToken!: string;
+}
+
+export class ConfirmResetResponseDto {
+  @ApiProperty({ type: ResetTokenDataDto })
+  data!: ResetTokenDataDto;
+
+  @ApiProperty()
+  message!: string;
 }

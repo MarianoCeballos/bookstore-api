@@ -16,6 +16,15 @@ import { UserRole } from 'src/core/enums/user-role.enum';
 import { AuthenticatedUser } from 'src/core/types/authenticated-user.type';
 import { UpdateUserDto } from 'src/modules/users/dto/update-user.dto';
 import { BooksService } from 'src/modules/books/books.service';
+import {
+  CartBookDto,
+  CartResponseDto,
+  FavoriteBookDto,
+  FavoritesResponseDto,
+  UpdateUserResponseDto,
+  UserAdminViewDto,
+  UserPublicViewDto,
+} from 'src/modules/users/dto/user-response.dto';
 
 @Injectable()
 export class UsersService {
@@ -31,17 +40,15 @@ export class UsersService {
     private readonly booksService: BooksService,
   ) {}
 
-  async findAll(username?: string): Promise<Array<Record<string, unknown>>> {
+  async findAll(username?: string): Promise<UserAdminViewDto[]> {
     const users = await this.users.find(
-      username
-        ? { username: { $ilike: `%${username.trim()}%` } }
-        : {},
+      username ? { username: { $ilike: `%${username.trim()}%` } } : {},
       { orderBy: { username: 'ASC' } },
     );
     return users.map((user) => this.toAdminView(user));
   }
 
-  async findById(id: number): Promise<Record<string, unknown>> {
+  async findById(id: number): Promise<UserPublicViewDto> {
     const user = await this.users.findOne({ ID: id });
     if (!user) {
       throw new NotFoundException(`User with ID ${id} not found`);
@@ -53,12 +60,14 @@ export class UsersService {
     id: number,
     currentUser: AuthenticatedUser,
     input: UpdateUserDto,
-  ): Promise<{ message: string; data: Record<string, unknown> }> {
+  ): Promise<UpdateUserResponseDto> {
     this.assertOwnerOrAdmin(id, currentUser);
     const user = await this.requireUser(id);
     const isAdmin = currentUser.role === UserRole.ADMIN;
     if (input.email && input.email.toLowerCase() !== user.email) {
-      const existing = await this.users.findOne({ email: input.email.toLowerCase() });
+      const existing = await this.users.findOne({
+        email: input.email.toLowerCase(),
+      });
       if (existing) {
         throw new ConflictException('Email is already registered');
       }
@@ -89,13 +98,16 @@ export class UsersService {
     if (input.surname) user.surname = input.surname.trim();
     if (input.profilePic !== undefined) user.profilePic = input.profilePic;
     await this.users.getEntityManager().flush();
-    return { message: 'User modified successfully', data: this.toPublicView(user) };
+    return {
+      message: 'User modified successfully',
+      data: this.toPublicView(user),
+    };
   }
 
   async setStatus(
     id: number,
     action: 'suspended' | 'enabled' | 'admin',
-  ): Promise<Record<string, unknown>> {
+  ): Promise<UserAdminViewDto> {
     const user = await this.requireUser(id);
     if (action === 'suspended') {
       user.suspendedTimes += 1;
@@ -127,11 +139,14 @@ export class UsersService {
   async getFavorites(
     id: number,
     currentUser: AuthenticatedUser,
-  ): Promise<unknown[]> {
+  ): Promise<FavoriteBookDto[]> {
     this.assertOwnerOrAdmin(id, currentUser);
     const rows = await this.favorites.find(
       { user: { ID: id } },
-      { populate: ['book', 'book.authors', 'book.categories'], orderBy: { createdAt: 'DESC' } },
+      {
+        populate: ['book', 'book.authors', 'book.categories'],
+        orderBy: { createdAt: 'DESC' },
+      },
     );
     return rows.map((row) => ({
       ...this.booksService.toView(row.book),
@@ -143,7 +158,7 @@ export class UsersService {
     id: number,
     bookId: number,
     currentUser: AuthenticatedUser,
-  ): Promise<{ data: unknown[]; message: string }> {
+  ): Promise<FavoritesResponseDto> {
     this.assertOwnerOrAdmin(id, currentUser);
     const user = await this.requireUser(id);
     const book = await this.requireBook(bookId);
@@ -162,14 +177,14 @@ export class UsersService {
     id: number,
     bookId: number,
     currentUser: AuthenticatedUser,
-  ): Promise<{ data: unknown[]; message: string }> {
+  ): Promise<FavoritesResponseDto> {
     this.assertOwnerOrAdmin(id, currentUser);
     const existing = await this.favorites.findOne({
       user: { ID: id },
       book: { ID: bookId },
     });
     if (existing) {
-      await this.favorites.getEntityManager().removeAndFlush(existing);
+      await this.favorites.getEntityManager().remove(existing).flush();
     }
     return {
       data: await this.getFavorites(id, currentUser),
@@ -177,11 +192,17 @@ export class UsersService {
     };
   }
 
-  async getCart(id: number, currentUser: AuthenticatedUser): Promise<unknown[]> {
+  async getCart(
+    id: number,
+    currentUser: AuthenticatedUser,
+  ): Promise<CartBookDto[]> {
     this.assertOwnerOrAdmin(id, currentUser);
     const rows = await this.cartItems.find(
       { user: { ID: id } },
-      { populate: ['book', 'book.authors', 'book.categories'], orderBy: { createdAt: 'DESC' } },
+      {
+        populate: ['book', 'book.authors', 'book.categories'],
+        orderBy: { createdAt: 'DESC' },
+      },
     );
     return rows.map((row) => ({
       ...this.booksService.toView(row.book),
@@ -193,7 +214,7 @@ export class UsersService {
     id: number,
     bookId: number,
     currentUser: AuthenticatedUser,
-  ): Promise<{ data: unknown[]; message: string }> {
+  ): Promise<CartResponseDto> {
     this.assertOwnerOrAdmin(id, currentUser);
     const user = await this.requireUser(id);
     const book = await this.requireBook(bookId);
@@ -212,14 +233,14 @@ export class UsersService {
     id: number,
     bookId: number,
     currentUser: AuthenticatedUser,
-  ): Promise<{ data: unknown[]; message: string }> {
+  ): Promise<CartResponseDto> {
     this.assertOwnerOrAdmin(id, currentUser);
     const existing = await this.cartItems.findOne({
       user: { ID: id },
       book: { ID: bookId },
     });
     if (existing) {
-      await this.cartItems.getEntityManager().removeAndFlush(existing);
+      await this.cartItems.getEntityManager().remove(existing).flush();
     }
     return {
       data: await this.getCart(id, currentUser),
@@ -237,7 +258,7 @@ export class UsersService {
     return rows.map((user) => user.email);
   }
 
-  async userByUsername(username: string): Promise<Array<Record<string, unknown>>> {
+  async userByUsername(username: string): Promise<UserPublicViewDto[]> {
     const rows = await this.users.find(
       { username: { $ilike: `%${username.trim()}%` } },
       { orderBy: { username: 'ASC' } },
@@ -245,7 +266,7 @@ export class UsersService {
     return rows.map((user) => this.toPublicView(user));
   }
 
-  toPublicView(user: UserEntity): Record<string, unknown> {
+  toPublicView(user: UserEntity): UserPublicViewDto {
     return {
       ID: user.ID,
       username: user.username,
@@ -261,7 +282,7 @@ export class UsersService {
     };
   }
 
-  toAdminView(user: UserEntity): Record<string, unknown> {
+  toAdminView(user: UserEntity): UserAdminViewDto {
     return { ...this.toPublicView(user), email: user.email };
   }
 

@@ -10,7 +10,23 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBadRequestResponse,
+  ApiBearerAuth,
+  ApiConflictResponse,
+  ApiCreatedResponse,
+  ApiForbiddenResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
+import { MessageResponseDto } from 'src/core/dto/message-response.dto';
+import {
+  ReviewViewDto,
+  UserReviewsResponseDto,
+} from 'src/modules/reviews/dto/review-view.dto';
 import { CurrentUser } from 'src/core/decorators/current-user.decorator';
 import { JwtAuthGuard } from 'src/core/guards/jwt-auth.guard';
 import { AuthenticatedUser } from 'src/core/types/authenticated-user.type';
@@ -24,17 +40,20 @@ export class ReviewsController {
   constructor(private readonly reviews: ReviewsService) {}
 
   @Get()
-  findAll(): Promise<Array<Record<string, unknown>>> {
+  @ApiOperation({ summary: 'List all reviews' })
+  @ApiOkResponse({ type: [ReviewViewDto] })
+  findAll(): Promise<ReviewViewDto[]> {
     return this.reviews.findAll();
   }
 
-  @Get('book/:ID')
-  findByBook(@Param('ID', ParseIntPipe) id: number): Promise<Record<string, unknown>> {
-    return this.reviews.findByBook(id);
-  }
-
   @Get('user/:ID')
-  findByUser(@Param('ID', ParseIntPipe) id: number): Promise<Record<string, unknown>> {
+  @ApiOperation({ summary: 'Get a user with their reviews' })
+  @ApiOkResponse({ type: UserReviewsResponseDto })
+  @ApiBadRequestResponse({ description: 'Invalid user ID' })
+  @ApiNotFoundResponse({ description: 'User not found' })
+  findByUser(
+    @Param('ID', ParseIntPipe) id: number,
+  ): Promise<UserReviewsResponseDto> {
     return this.reviews.findByUser(id);
   }
 
@@ -42,6 +61,10 @@ export class ReviewsController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a review for a book' })
+  @ApiCreatedResponse({ type: MessageResponseDto })
+  @ApiBadRequestResponse({ description: 'Validation failed' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiNotFoundResponse({ description: 'User or book not found' })
   create(
     @Body() input: CreateReviewDto,
     @CurrentUser() user: AuthenticatedUser,
@@ -52,6 +75,13 @@ export class ReviewsController {
   @Put(':ID')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
+  @ApiOperation({ summary: 'Edit a review, or report it with ?report=true' })
+  @ApiOkResponse({ type: MessageResponseDto })
+  @ApiBadRequestResponse({ description: 'Validation failed' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({ description: 'Not allowed to access this resource' })
+  @ApiNotFoundResponse({ description: 'Review not found' })
+  @ApiConflictResponse({ description: 'Review already reported' })
   update(
     @Param('ID', ParseIntPipe) id: number,
     @Body() input: UpdateReviewDto,
@@ -64,6 +94,12 @@ export class ReviewsController {
   @Delete(':ID')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete a review' })
+  @ApiOkResponse({ type: MessageResponseDto })
+  @ApiBadRequestResponse({ description: 'Invalid review ID' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({ description: 'Not allowed to access this resource' })
+  @ApiNotFoundResponse({ description: 'Review not found' })
   delete(
     @Param('ID', ParseIntPipe) id: number,
     @CurrentUser() user: AuthenticatedUser,

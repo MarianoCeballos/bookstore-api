@@ -45,7 +45,11 @@ export class EmailService {
     });
   }
 
-  async sendConfirmation(email: string, name: string, url: string): Promise<void> {
+  async sendConfirmation(
+    email: string,
+    name: string,
+    url: string,
+  ): Promise<void> {
     await this.send(
       email,
       'Confirm your Bookstore account',
@@ -53,7 +57,11 @@ export class EmailService {
     );
   }
 
-  async sendPasswordReset(email: string, name: string, code: string): Promise<void> {
+  async sendPasswordReset(
+    email: string,
+    name: string,
+    code: string,
+  ): Promise<void> {
     await this.send(
       email,
       'Your Bookstore password reset code',
@@ -95,9 +103,7 @@ export class EmailService {
     items: Array<{ title: string; description: string }>,
   ): Promise<void> {
     const links = items
-      .map(
-        (item) => `<li>${this.escape(item.title)}</li>`,
-      )
+      .map((item) => `<li>${this.escape(item.title)}</li>`)
       .join('');
     await this.send(
       email,
@@ -113,7 +119,11 @@ export class EmailService {
     );
   }
 
-  async sendContact(sender: string, subject: string, message: string): Promise<void> {
+  async sendContact(
+    sender: string,
+    subject: string,
+    message: string,
+  ): Promise<void> {
     const destination = this.config.get<string>('CONTACT_EMAIL');
     if (!destination) {
       throw new ServiceUnavailableException('Contact email is not configured');

@@ -1,4 +1,47 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+export class ReviewUserSummaryDto {
+  @ApiProperty()
+  ID!: number;
+
+  @ApiProperty()
+  username!: string;
+
+  @ApiPropertyOptional()
+  profilePic?: string;
+}
+
+export class BookReviewDto {
+  @ApiProperty()
+  ID!: number;
+
+  @ApiProperty()
+  title!: string;
+
+  @ApiProperty()
+  review!: string;
+
+  @ApiProperty()
+  rating!: number;
+
+  @ApiProperty({ type: String, format: 'date-time' })
+  createdAt!: Date;
+
+  @ApiProperty()
+  bookID!: number;
+
+  @ApiProperty()
+  userID!: number;
+
+  @ApiProperty({ type: ReviewUserSummaryDto })
+  user!: ReviewUserSummaryDto;
+
+  @ApiProperty({
+    type: [Number],
+    description: 'IDs of the users who reported this review',
+  })
+  reports!: number[];
+}
 
 export class BookViewDto {
   @ApiProperty()
@@ -13,7 +56,7 @@ export class BookViewDto {
   @ApiProperty({ type: String, example: '19.95' })
   price!: string;
 
-  @ApiProperty({ required: false })
+  @ApiPropertyOptional()
   image?: string;
 
   @ApiProperty({ type: [String] })
@@ -22,27 +65,41 @@ export class BookViewDto {
   @ApiProperty({ type: [String] })
   categories!: string[];
 
-  @ApiProperty({ required: false })
+  @ApiPropertyOptional()
   publisher?: string;
 
-  @ApiProperty({ required: false })
+  @ApiPropertyOptional()
   publishedDate?: string;
 
-  @ApiProperty({ required: false })
+  @ApiPropertyOptional()
   pageCount?: number;
 
-  @ApiProperty({ required: false })
-  rating?: number;
+  @ApiProperty()
+  rating!: number;
 
-  @ApiProperty({ required: false })
+  @ApiPropertyOptional()
   language?: string;
 
-  @ApiProperty({ required: false })
+  @ApiPropertyOptional()
   avgReadingTime?: string;
 
   @ApiProperty()
   soldCopies!: number;
 
-  @ApiProperty({ type: [Object] })
-  reviews!: Array<Record<string, unknown>>;
+  @ApiProperty({ type: [BookReviewDto] })
+  reviews!: BookReviewDto[];
+
+  @ApiProperty({ type: String, format: 'date-time' })
+  createdAt!: Date;
+}
+
+export class HomeBooksResponseDto {
+  @ApiProperty({ type: [BookViewDto] })
+  bestSellers!: BookViewDto[];
+
+  @ApiProperty({ type: [BookViewDto] })
+  mostPopular!: BookViewDto[];
+
+  @ApiProperty({ type: [BookViewDto] })
+  newReleases!: BookViewDto[];
 }

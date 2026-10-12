@@ -16,6 +16,7 @@ import { AuthenticatedUser } from 'src/core/types/authenticated-user.type';
 import { EmailService } from 'src/modules/email/email.service';
 import { RegisterDto } from 'src/modules/auth/dto/register.dto';
 import { ResetPasswordDto } from 'src/modules/auth/dto/reset-password.dto';
+import { AuthResponseDto } from 'src/modules/auth/dto/auth-response.dto';
 
 @Injectable()
 export class AuthService {
@@ -46,11 +47,20 @@ export class AuthService {
     });
     const token = randomBytes(32).toString('hex');
     user.confirmationTokenHash = this.hash(token);
-    user.confirmationTokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    await this.users.getEntityManager().persistAndFlush(user);
-    const url = new URL('/confirm', this.config.getOrThrow<string>('FRONTEND_URL'));
+    user.confirmationTokenExpiresAt = new Date(
+      Date.now() + 24 * 60 * 60 * 1000,
+    );
+    await this.users.getEntityManager().persist(user).flush();
+    const url = new URL(
+      '/confirm',
+      this.config.getOrThrow<string>('FRONTEND_URL'),
+    );
     url.searchParams.set('token', token);
-    await this.emailService.sendConfirmation(user.email, user.name, url.toString());
+    await this.emailService.sendConfirmation(
+      user.email,
+      user.name,
+      url.toString(),
+    );
     return { message: 'Account created. Check your email to confirm it.' };
   }
 
@@ -62,7 +72,11 @@ export class AuthService {
     const user = await this.users.findOne({
       $or: [{ username: identifier }, { email: identifier }],
     });
-    if (!user || !user.passwordHash || !(await argon2.verify(user.passwordHash, password))) {
+    if (
+      !user ||
+      !user.passwordHash ||
+      !(await argon2.verify(user.passwordHash, password))
+    ) {
       throw new UnauthorizedException('Invalid username or password');
     }
     if (!user.enabled || user.banned) {
@@ -71,7 +85,7 @@ export class AuthService {
     return user;
   }
 
-  async login(user: UserEntity): Promise<Record<string, unknown>> {
+  async login(user: UserEntity): Promise<AuthResponseDto> {
     const token = await this.jwt.signAsync(
       { sub: user.ID, email: user.email, role: user.role },
       { expiresIn: this.config.get<number>('JWT_EXPIRES_IN_SECONDS', 86400) },
@@ -88,7 +102,9 @@ export class AuthService {
       !user.confirmationTokenExpiresAt ||
       user.confirmationTokenExpiresAt.getTime() < Date.now()
     ) {
-      throw new UnauthorizedException('Confirmation link is invalid or expired');
+      throw new UnauthorizedException(
+        'Confirmation link is invalid or expired',
+      );
     }
     user.confirmationTokenHash = undefined;
     user.confirmationTokenExpiresAt = undefined;
@@ -102,19 +118,34 @@ export class AuthService {
       username: username.trim().toLowerCase(),
     });
     if (!user || user.enabled || user.banned) {
-      return { message: 'If the account requires confirmation, an email was sent.' };
+      return {
+        message: 'If the account requires confirmation, an email was sent.',
+      };
     }
     const token = randomBytes(32).toString('hex');
     user.confirmationTokenHash = this.hash(token);
-    user.confirmationTokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    user.confirmationTokenExpiresAt = new Date(
+      Date.now() + 24 * 60 * 60 * 1000,
+    );
     await this.users.getEntityManager().flush();
-    const url = new URL('/confirm', this.config.getOrThrow<string>('FRONTEND_URL'));
+    const url = new URL(
+      '/confirm',
+      this.config.getOrThrow<string>('FRONTEND_URL'),
+    );
     url.searchParams.set('token', token);
-    await this.emailService.sendConfirmation(user.email, user.name, url.toString());
-    return { message: 'If the account requires confirmation, an email was sent.' };
+    await this.emailService.sendConfirmation(
+      user.email,
+      user.name,
+      url.toString(),
+    );
+    return {
+      message: 'If the account requires confirmation, an email was sent.',
+    };
   }
 
-  async requestPasswordReset(userIdentifier: string): Promise<{ message: string }> {
+  async requestPasswordReset(
+    userIdentifier: string,
+  ): Promise<{ message: string }> {
     const identifier = userIdentifier.trim().toLowerCase();
     const user = await this.users.findOne({
       $or: [{ email: identifier }, { username: identifier }],
@@ -161,10 +192,14 @@ export class AuthService {
     try {
       claims = await this.jwt.verifyAsync(input.resetToken);
     } catch {
-      throw new UnauthorizedException('Password reset token is invalid or expired');
+      throw new UnauthorizedException(
+        'Password reset token is invalid or expired',
+      );
     }
     if (claims.purpose !== 'password-reset' || !claims.sub) {
-      throw new UnauthorizedException('Password reset token is invalid or expired');
+      throw new UnauthorizedException(
+        'Password reset token is invalid or expired',
+      );
     }
     const user = await this.users.findOne({ ID: claims.sub });
     if (!user) {
@@ -183,7 +218,7 @@ export class AuthService {
     return account;
   }
 
-  toPublicUser(user: UserEntity): Record<string, unknown> {
+  toPublicUser(user: UserEntity): Omit<AuthResponseDto, 'token'> {
     return {
       ID: user.ID,
       username: user.username,
@@ -204,5 +239,4 @@ export class AuthService {
   private hash(value: string): string {
     return createHash('sha256').update(value).digest('hex');
   }
-
 }

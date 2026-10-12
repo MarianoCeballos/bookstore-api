@@ -68,7 +68,11 @@ function numericList(value: unknown): number[] {
   if (Array.isArray(value)) {
     return value.map(Number).filter((id) => Number.isSafeInteger(id) && id > 0);
   }
-  if (typeof value === 'string' && value.startsWith('{') && value.endsWith('}')) {
+  if (
+    typeof value === 'string' &&
+    value.startsWith('{') &&
+    value.endsWith('}')
+  ) {
     return value
       .slice(1, -1)
       .split(',')
@@ -126,11 +130,16 @@ async function importData(): Promise<void> {
     throw new Error('LEGACY_DATABASE_URL must point to the source database');
   }
   if (process.env.IMPORT_LEGACY_DATA !== 'YES') {
-    throw new Error('Set IMPORT_LEGACY_DATA=YES to confirm this one-time import');
+    throw new Error(
+      'Set IMPORT_LEGACY_DATA=YES to confirm this one-time import',
+    );
   }
   const legacyPool = new Pool({
     connectionString: legacyUrl,
-    ssl: process.env.LEGACY_DATABASE_SSL === 'true' ? { rejectUnauthorized: true } : undefined,
+    ssl:
+      process.env.LEGACY_DATABASE_SSL === 'true'
+        ? { rejectUnauthorized: true }
+        : undefined,
   });
   const orm = await MikroORM.init(mikroOrmConfig);
   try {
@@ -159,7 +168,9 @@ async function importData(): Promise<void> {
         (await em.count(BookEntity)) > 0 ||
         (await em.count(OrderEntity)) > 0
       ) {
-        throw new Error('The destination database must not contain users, books, or orders');
+        throw new Error(
+          'The destination database must not contain users, books, or orders',
+        );
       }
       const created: AnyEntity[] = [];
       const usersById = new Map<number, UserEntity>();
@@ -173,11 +184,15 @@ async function importData(): Promise<void> {
           ID: requiredId(field(row, 'ID'), 'user ID'),
           name: requiredString(field(row, 'name'), 'user name'),
           surname: requiredString(field(row, 'surname'), 'user surname'),
-          username: requiredString(field(row, 'username'), 'username').toLowerCase(),
+          username: requiredString(
+            field(row, 'username'),
+            'username',
+          ).toLowerCase(),
           email: requiredString(field(row, 'email'), 'email').toLowerCase(),
-          profilePic: typeof field(row, 'profilePic') === 'string'
-            ? String(field(row, 'profilePic'))
-            : undefined,
+          profilePic:
+            typeof field(row, 'profilePic') === 'string'
+              ? String(field(row, 'profilePic'))
+              : undefined,
           enabled: Boolean(field(row, 'enabled')),
           banned: Boolean(field(row, 'banned')),
           suspendedTimes: Number(field(row, 'suspendedTimes') ?? 0),
@@ -231,29 +246,39 @@ async function importData(): Promise<void> {
         const book = em.create(BookEntity, {
           ID: requiredId(field(row, 'ID'), 'book ID'),
           title: requiredString(field(row, 'title'), 'book title'),
-          description: requiredString(field(row, 'description'), 'book description'),
+          description: requiredString(
+            field(row, 'description'),
+            'book description',
+          ),
           price: decimal(field(row, 'price'), 'book price'),
-          image: typeof field(row, 'image') === 'string'
-            ? String(field(row, 'image'))
-            : undefined,
-          publisher: typeof field(row, 'publisher') === 'string'
-            ? String(field(row, 'publisher'))
-            : undefined,
-          publishedDate: typeof field(row, 'publishedDate') === 'string'
-            ? String(field(row, 'publishedDate'))
-            : undefined,
-          pageCount: field(row, 'pageCount') === null
-            ? undefined
-            : Number(field(row, 'pageCount')),
-          rating: field(row, 'rating') === null
-            ? undefined
-            : decimal(field(row, 'rating'), 'book rating'),
-          language: typeof field(row, 'language') === 'string'
-            ? String(field(row, 'language'))
-            : undefined,
-          avgReadingTime: typeof field(row, 'avgReadingTime') === 'string'
-            ? String(field(row, 'avgReadingTime'))
-            : undefined,
+          image:
+            typeof field(row, 'image') === 'string'
+              ? String(field(row, 'image'))
+              : undefined,
+          publisher:
+            typeof field(row, 'publisher') === 'string'
+              ? String(field(row, 'publisher'))
+              : undefined,
+          publishedDate:
+            typeof field(row, 'publishedDate') === 'string'
+              ? String(field(row, 'publishedDate'))
+              : undefined,
+          pageCount:
+            field(row, 'pageCount') === null
+              ? undefined
+              : Number(field(row, 'pageCount')),
+          rating:
+            field(row, 'rating') === null
+              ? undefined
+              : decimal(field(row, 'rating'), 'book rating'),
+          language:
+            typeof field(row, 'language') === 'string'
+              ? String(field(row, 'language'))
+              : undefined,
+          avgReadingTime:
+            typeof field(row, 'avgReadingTime') === 'string'
+              ? String(field(row, 'avgReadingTime'))
+              : undefined,
           soldCopies: Number(field(row, 'soldCopies') ?? 0),
           createdAt: optionalDate(field(row, 'createdAt')) ?? new Date(),
           updatedAt: optionalDate(field(row, 'updatedAt')) ?? new Date(),
@@ -307,7 +332,9 @@ async function importData(): Promise<void> {
           if (!reporter) {
             continue;
           }
-          created.push(em.create(ReviewReportEntity, { review, user: reporter }));
+          created.push(
+            em.create(ReviewReportEntity, { review, user: reporter }),
+          );
         }
       }
 
@@ -340,9 +367,10 @@ async function importData(): Promise<void> {
           status: relationStatus(field(row, 'status')),
           total: decimal(field(row, 'total'), 'payment total'),
           gift: Boolean(field(row, 'gift')),
-          giftRecipient: typeof field(row, 'giftrecipient') === 'string'
-            ? String(field(row, 'giftrecipient'))
-            : undefined,
+          giftRecipient:
+            typeof field(row, 'giftrecipient') === 'string'
+              ? String(field(row, 'giftrecipient'))
+              : undefined,
           user,
           createdAt: optionalDate(field(row, 'createdAt')) ?? new Date(),
           updatedAt: optionalDate(field(row, 'updatedAt')) ?? new Date(),
@@ -353,7 +381,9 @@ async function importData(): Promise<void> {
             throw new Error('Legacy payment contains an invalid item');
           }
           const itemRow = item as LegacyRow;
-          const book = booksById.get(requiredId(field(itemRow, 'ID', 'id'), 'order book ID'));
+          const book = booksById.get(
+            requiredId(field(itemRow, 'ID', 'id'), 'order book ID'),
+          );
           if (!book) {
             throw new Error('Legacy order item points to a missing book');
           }
@@ -365,7 +395,10 @@ async function importData(): Promise<void> {
             em.create(OrderItemEntity, {
               order,
               book,
-              title: requiredString(field(itemRow, 'title'), 'order item title'),
+              title: requiredString(
+                field(itemRow, 'title'),
+                'order item title',
+              ),
               unitPrice: decimal(
                 field(itemRow, 'unit_price', 'unitPrice', 'price'),
                 'order item price',
@@ -378,16 +411,26 @@ async function importData(): Promise<void> {
 
       em.persist(created);
       await em.flush();
-      for (const table of ['users', 'authors', 'categories', 'books', 'reviews']) {
-        await em.getConnection().execute(
-          `select setval(pg_get_serial_sequence('"${table}"', 'ID'), coalesce(max("ID"), 1), max("ID") is not null) from "${table}"`,
-        );
+      for (const table of [
+        'users',
+        'authors',
+        'categories',
+        'books',
+        'reviews',
+      ]) {
+        await em
+          .getConnection()
+          .execute(
+            `select setval(pg_get_serial_sequence('"${table}"', 'ID'), coalesce(max("ID"), 1), max("ID") is not null) from "${table}"`,
+          );
       }
       for (const category of categoriesById.values()) {
-        await em.getConnection().execute(
-          'update categories set sold_copies = ? where "ID" = ?',
-          [category.soldCopies, category.ID],
-        );
+        await em
+          .getConnection()
+          .execute('update categories set sold_copies = ? where "ID" = ?', [
+            category.soldCopies,
+            category.ID,
+          ]);
       }
     });
     process.stdout.write(
