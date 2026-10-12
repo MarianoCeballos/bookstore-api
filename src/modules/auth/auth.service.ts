@@ -12,6 +12,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as argon2 from '@node-rs/argon2';
 import { createHash, randomBytes, randomInt } from 'node:crypto';
 import { UserEntity } from 'src/core/entities/user.entity';
+import { UserRole } from 'src/core/enums/user-role.enum';
 import { AuthenticatedUser } from 'src/core/types/authenticated-user.type';
 import { EmailService } from 'src/modules/email/email.service';
 import { RegisterDto } from 'src/modules/auth/dto/register.dto';
@@ -44,6 +45,9 @@ export class AuthService {
       surname: input.surname.trim(),
       profilePic: input.profilePic,
       passwordHash: await argon2.hash(input.password),
+      role: this.adminEmails().includes(email)
+        ? UserRole.ADMIN
+        : UserRole.USER,
     });
     const token = randomBytes(32).toString('hex');
     user.confirmationTokenHash = this.hash(token);
@@ -234,6 +238,13 @@ export class AuthService {
       dateSuspended: user.dateSuspended,
       createdAt: user.createdAt,
     };
+  }
+
+  private adminEmails(): string[] {
+    return (this.config.get<string>('ADMIN_EMAILS') ?? '')
+      .split(',')
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean);
   }
 
   private hash(value: string): string {
