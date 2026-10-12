@@ -45,9 +45,7 @@ export class AuthService {
       surname: input.surname.trim(),
       profilePic: input.profilePic,
       passwordHash: await argon2.hash(input.password),
-      role: this.adminEmails().includes(email)
-        ? UserRole.ADMIN
-        : UserRole.USER,
+      role: this.adminEmails().includes(email) ? UserRole.ADMIN : UserRole.USER,
     });
     const token = randomBytes(32).toString('hex');
     user.confirmationTokenHash = this.hash(token);
