@@ -166,7 +166,11 @@ export class AuthService {
     id: string,
     code: string,
   ): Promise<{ data: { resetToken: string }; message: string }> {
-    const user = await this.users.findOne({ ID: Number(id) });
+    const numericId = Number(id.trim());
+    if (!Number.isSafeInteger(numericId) || numericId < 1) {
+      throw new UnauthorizedException('Reset code is invalid or expired');
+    }
+    const user = await this.users.findOne({ ID: numericId });
     if (
       !user ||
       !user.resetCodeHash ||

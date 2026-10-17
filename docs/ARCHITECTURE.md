@@ -8,18 +8,18 @@ Configuration is loaded only from environment variables. `DATABASE_URL`, a 32-ch
 
 ## Modules
 
-| Module | Responsibility |
-| --- | --- |
-| `auth` | Password registration and login, email confirmation, password reset, and JWT issuance |
-| `books` | Catalog search, autocomplete-compatible title filtering, author/category filters, pagination, home collections, and admin catalog CRUD |
-| `authors` | Author listing and administration |
-| `categories` | Category listing and administration |
-| `users` | Profiles, admin user management, favorites, cart, and username/email lookups |
-| `reviews` | Review CRUD, reports, rating aggregation, and ownership enforcement |
-| `payments` | Server-owned cart snapshots, MercadoPago preferences and verification, signed webhooks, orders, and email delivery |
-| `stats` | Admin-only user, catalog, category, and order analytics |
-| `email` | SMTP delivery, confirmation and reset messages, receipts, and generated PDF attachments |
-| `health` | Liveness endpoint |
+| Module       | Responsibility                                                                                                                         |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth`       | Password registration and login, email confirmation, password reset, and JWT issuance                                                  |
+| `books`      | Catalog search, autocomplete-compatible title filtering, author/category filters, pagination, home collections, and admin catalog CRUD |
+| `authors`    | Author listing and administration                                                                                                      |
+| `categories` | Category listing and administration                                                                                                    |
+| `users`      | Profiles, admin user management, favorites, cart, and username/email lookups                                                           |
+| `reviews`    | Review CRUD, reports, rating aggregation, and ownership enforcement                                                                    |
+| `payments`   | Server-owned cart snapshots, MercadoPago preferences and verification, signed webhooks, orders, and email delivery                     |
+| `stats`      | Admin-only user, catalog, category, and order analytics                                                                                |
+| `email`      | SMTP delivery, confirmation and reset messages, receipts, and generated PDF attachments                                                |
+| `health`     | Liveness endpoint                                                                                                                      |
 
 ## Data model
 
@@ -45,3 +45,5 @@ The frontend must never submit a trusted amount, user ID, book price, or payment
 - Payment verification takes `{ "paymentId": "..." }` and retrieves the authoritative result from MercadoPago.
 - User payment history/detail requires a bearer token; administrators can inspect all orders.
 - Catalog browsing is public. Account, cart, checkout, and administrative operations continue to use JWT and role guards.
+
+See [AUDIT_AND_REFACTORING.md](./AUDIT_AND_REFACTORING.md) for the backend validation, data-integrity, and refactoring audit log.

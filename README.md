@@ -25,48 +25,48 @@ Compose starts only PostgreSQL. The API runs locally and listens on `http://loca
 
 ## Environment
 
-| Variable | Purpose |
-| --- | --- |
-| `NODE_ENV` | Runtime mode |
-| `PORT` | HTTP port, defaults to `3001` |
-| `POSTGRES_HOST_PORT` | Host port published by the Docker PostgreSQL container, defaults to `5433` |
-| `DATABASE_URL` | PostgreSQL connection URL |
-| `JWT_SECRET` | Signing secret with at least 32 characters |
-| `JWT_EXPIRES_IN_SECONDS` | Access-token lifetime |
-| `FRONTEND_URL` | Frontend destination for confirmation and payment return links |
-| `MERCADOPAGO_ACCESS_TOKEN` | MercadoPago API access token |
-| `MERCADOPAGO_WEBHOOK_SECRET` | Secret used to verify MercadoPago webhook signatures |
-| `API_PUBLIC_URL` | Public API origin used for payment notifications |
-| `EMAIL_HOST` | SMTP hostname |
-| `EMAIL_PORT` | SMTP port |
-| `EMAIL_SECURE` | Whether SMTP uses TLS |
-| `EMAIL_USER` | SMTP username |
-| `EMAIL_PASSWORD` | SMTP password |
-| `EMAIL_FROM` | Sender address |
-| `CONTACT_EMAIL` | Destination address for contact mail |
-| `LEGACY_DATABASE_URL` | Optional source PostgreSQL URL for the one-off importer |
-| `LEGACY_DATABASE_SSL` | Set to `true` when the legacy database requires TLS |
-| `IMPORT_LEGACY_DATA` | Must be exactly `YES` to enable a one-time import |
+| Variable                     | Purpose                                                                    |
+| ---------------------------- | -------------------------------------------------------------------------- |
+| `NODE_ENV`                   | Runtime mode                                                               |
+| `PORT`                       | HTTP port, defaults to `3001`                                              |
+| `POSTGRES_HOST_PORT`         | Host port published by the Docker PostgreSQL container, defaults to `5433` |
+| `DATABASE_URL`               | PostgreSQL connection URL                                                  |
+| `JWT_SECRET`                 | Signing secret with at least 32 characters                                 |
+| `JWT_EXPIRES_IN_SECONDS`     | Access-token lifetime                                                      |
+| `FRONTEND_URL`               | Frontend destination for confirmation and payment return links             |
+| `MERCADOPAGO_ACCESS_TOKEN`   | MercadoPago API access token                                               |
+| `MERCADOPAGO_WEBHOOK_SECRET` | Secret used to verify MercadoPago webhook signatures                       |
+| `API_PUBLIC_URL`             | Public API origin used for payment notifications                           |
+| `EMAIL_HOST`                 | SMTP hostname                                                              |
+| `EMAIL_PORT`                 | SMTP port                                                                  |
+| `EMAIL_SECURE`               | Whether SMTP uses TLS                                                      |
+| `EMAIL_USER`                 | SMTP username                                                              |
+| `EMAIL_PASSWORD`             | SMTP password                                                              |
+| `EMAIL_FROM`                 | Sender address                                                             |
+| `CONTACT_EMAIL`              | Destination address for contact mail                                       |
+| `LEGACY_DATABASE_URL`        | Optional source PostgreSQL URL for the one-off importer                    |
+| `LEGACY_DATABASE_SSL`        | Set to `true` when the legacy database requires TLS                        |
+| `IMPORT_LEGACY_DATA`         | Must be exactly `YES` to enable a one-time import                          |
 
 Never commit a real `.env` file or credentials. The catalog is public and can be browsed without an account; account, cart, checkout, and administration operations require username/password authentication.
 
 ## Commands
 
-| Command | Purpose |
-| --- | --- |
-| `yarn start:dev` | Start the API in watch mode |
-| `yarn build` | Compile production JavaScript |
-| `yarn start:prod` | Run the compiled API |
-| `yarn typecheck` | Run strict TypeScript checks |
-| `yarn lint` | Run ESLint |
-| `yarn test --runInBand` | Run Jest tests |
-| `yarn sanitycheck` | Run typecheck, lint, tests, and build |
-| `yarn migration:create` | Generate a MikroORM migration |
-| `yarn migration:up` | Apply migrations |
-| `yarn migration:down` | Roll back the most recent migration |
-| `yarn seed` | Fill books, authors and categories from the Google Books API (re-runnable) |
-| `yarn data:import` | Import records from a separate legacy database |
-| `yarn openapi:write` | Export the Swagger contract to `openapi.json` without a database |
+| Command                 | Purpose                                                                    |
+| ----------------------- | -------------------------------------------------------------------------- |
+| `yarn start:dev`        | Start the API in watch mode                                                |
+| `yarn build`            | Compile production JavaScript                                              |
+| `yarn start:prod`       | Run the compiled API                                                       |
+| `yarn typecheck`        | Run strict TypeScript checks                                               |
+| `yarn lint`             | Run ESLint                                                                 |
+| `yarn test --runInBand` | Run Jest tests                                                             |
+| `yarn sanitycheck`      | Run typecheck, lint, tests, and build                                      |
+| `yarn migration:create` | Generate a MikroORM migration                                              |
+| `yarn migration:up`     | Apply migrations                                                           |
+| `yarn migration:down`   | Roll back the most recent migration                                        |
+| `yarn seed`             | Fill books, authors and categories from the Google Books API (re-runnable) |
+| `yarn data:import`      | Import records from a separate legacy database                             |
+| `yarn openapi:write`    | Export the Swagger contract to `openapi.json` without a database           |
 
 Run the importer only against a fresh destination database after setting `LEGACY_DATABASE_URL` and `IMPORT_LEGACY_DATA=YES`. It refuses to run if users, books, or orders already exist. Imported bcrypt password hashes cannot be converted to Argon2 without plaintext passwords, so imported accounts must use the email password-reset flow before signing in. The importer intentionally does not import transient Google Books API cache rows.
 
@@ -78,4 +78,4 @@ Username/password sign-in is available for account operations. Third-party ident
 
 ## Structure
 
-See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for module boundaries, entities, request flow, and migration notes.
+See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for module boundaries, entities, request flow, and migration notes, and [docs/AUDIT_AND_REFACTORING.md](./docs/AUDIT_AND_REFACTORING.md) for validation and refactoring history.

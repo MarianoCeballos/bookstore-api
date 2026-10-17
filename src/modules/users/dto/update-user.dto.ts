@@ -1,6 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import {
   IsEmail,
+  IsNotEmpty,
   IsOptional,
   IsString,
   MaxLength,
@@ -10,30 +12,49 @@ import {
 export class UpdateUserDto {
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsString()
+  @IsNotEmpty()
   @MinLength(3)
   @MaxLength(40)
   username?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsString()
+  @IsNotEmpty()
   @MaxLength(100)
   name?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsString()
+  @IsNotEmpty()
   @MaxLength(100)
   surname?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsEmail()
+  @MaxLength(255)
   email?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsString()
   @MaxLength(2048)
   profilePic?: string;

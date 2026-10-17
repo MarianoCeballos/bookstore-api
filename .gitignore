@@ -14,3 +14,4 @@ openapi.json
 temp/
 
 test-results.json
+.codebase-memory/

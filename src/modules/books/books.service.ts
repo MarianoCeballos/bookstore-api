@@ -149,40 +149,24 @@ export class BooksService {
   }
 
   async create(input: CreateBookDto): Promise<{ message: string }> {
-    const title = input.title.trim().toLowerCase();
-    if (await this.books.findOne({ title: { $ilike: title } })) {
+    const title = input.title.trim();
+    const existingBook = await this.books.findOne({
+      title: { $ilike: escapeLike(title) },
+    });
+    if (existingBook) {
       throw new ConflictException('Book title already exists');
     }
-    const authors = await Promise.all(
-      input.authors.map((item) =>
-        this.authors
-          .findOne({ name: item.value.trim() })
-          .then(
-            (existing) =>
-              existing ?? this.authors.create({ name: item.value.trim() }),
-          ),
-      ),
-    );
-    const categories = await Promise.all(
-      input.categories.map((item) =>
-        this.categories
-          .findOne({ category: item.value.trim() })
-          .then(
-            (existing) =>
-              existing ??
-              this.categories.create({ category: item.value.trim() }),
-          ),
-      ),
-    );
+    const authors = await this.resolveAuthors(input.authors);
+    const categories = await this.resolveCategories(input.categories);
     const book = this.books.create({
       title,
       description: input.description.trim(),
       price: this.normalizePrice(input.price),
-      image: input.image,
-      publisher: input.publisher,
-      publishedDate: input.publishedDate,
+      image: input.image?.trim() || undefined,
+      publisher: input.publisher?.trim() || undefined,
+      publishedDate: input.publishedDate?.trim() || undefined,
       pageCount: input.pageCount,
-      language: input.language,
+      language: input.language?.trim() || undefined,
       rating: '0',
       avgReadingTime: this.readingTime(input.pageCount),
     });
@@ -200,32 +184,24 @@ export class BooksService {
     if (!book) {
       throw new NotFoundException(`Book not found with id ${id}`);
     }
-    const authors = await Promise.all(
-      input.authors.map(async (item) => {
-        const name = item.value.trim();
-        return (
-          (await this.authors.findOne({ name })) ??
-          this.authors.create({ name })
-        );
-      }),
-    );
-    const categories = await Promise.all(
-      input.categories.map(async (item) => {
-        const category = item.value.trim();
-        return (
-          (await this.categories.findOne({ category })) ??
-          this.categories.create({ category })
-        );
-      }),
-    );
-    book.title = input.title.trim().toLowerCase();
+    const title = input.title.trim();
+    const duplicate = await this.books.findOne({
+      ID: { $ne: id },
+      title: { $ilike: escapeLike(title) },
+    });
+    if (duplicate) {
+      throw new ConflictException('Book title already exists');
+    }
+    const authors = await this.resolveAuthors(input.authors);
+    const categories = await this.resolveCategories(input.categories);
+    book.title = title;
     book.description = input.description.trim();
     book.price = this.normalizePrice(input.price);
-    book.image = input.image;
-    book.publisher = input.publisher;
-    book.publishedDate = input.publishedDate;
+    book.image = input.image?.trim() || undefined;
+    book.publisher = input.publisher?.trim() || undefined;
+    book.publishedDate = input.publishedDate?.trim() || undefined;
     book.pageCount = input.pageCount;
-    book.language = input.language;
+    book.language = input.language?.trim() || undefined;
     book.avgReadingTime = this.readingTime(input.pageCount);
     book.authors.set(authors);
     book.categories.set(categories);
@@ -234,6 +210,46 @@ export class BooksService {
       .persist([...authors, ...categories, book])
       .flush();
     return { message: 'Book modified successfully' };
+  }
+
+  private async resolveAuthors(
+    items: CreateBookDto['authors'],
+  ): Promise<AuthorEntity[]> {
+    const uniqueNames = new Map<string, string>();
+    for (const item of items) {
+      const trimmed = item.value.trim();
+      if (trimmed && !uniqueNames.has(trimmed.toLowerCase())) {
+        uniqueNames.set(trimmed.toLowerCase(), trimmed);
+      }
+    }
+    return Promise.all(
+      Array.from(uniqueNames.values()).map(async (name) => {
+        const existing = await this.authors.findOne({
+          name: { $ilike: escapeLike(name) },
+        });
+        return existing ?? this.authors.create({ name });
+      }),
+    );
+  }
+
+  private async resolveCategories(
+    items: CreateBookDto['categories'],
+  ): Promise<CategoryEntity[]> {
+    const uniqueCategories = new Map<string, string>();
+    for (const item of items) {
+      const trimmed = item.value.trim();
+      if (trimmed && !uniqueCategories.has(trimmed.toLowerCase())) {
+        uniqueCategories.set(trimmed.toLowerCase(), trimmed);
+      }
+    }
+    return Promise.all(
+      Array.from(uniqueCategories.values()).map(async (category) => {
+        const existing = await this.categories.findOne({
+          category: { $ilike: escapeLike(category) },
+        });
+        return existing ?? this.categories.create({ category });
+      }),
+    );
   }
 
   async delete(id: number): Promise<{ message: string }> {
