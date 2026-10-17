@@ -25,6 +25,11 @@ import {
   UserAdminViewDto,
   UserPublicViewDto,
 } from 'src/modules/users/dto/user-response.dto';
+import {
+  type UploadedImageFile,
+  validateAndEncodeProfilePicture,
+  validateProfilePicValue,
+} from 'src/modules/users/profile-picture.util';
 
 @Injectable()
 export class UsersService {
@@ -96,7 +101,9 @@ export class UsersService {
     if (input.email) user.email = input.email.trim().toLowerCase();
     if (input.name) user.name = input.name.trim();
     if (input.surname) user.surname = input.surname.trim();
-    if (input.profilePic !== undefined) user.profilePic = input.profilePic;
+    if (input.profilePic !== undefined) {
+      user.profilePic = validateProfilePicValue(input.profilePic);
+    }
     await this.users.getEntityManager().flush();
     return {
       message: 'User modified successfully',
@@ -104,10 +111,45 @@ export class UsersService {
     };
   }
 
+  async uploadProfilePicture(
+    id: number,
+    currentUser: AuthenticatedUser,
+    file?: UploadedImageFile,
+  ): Promise<UpdateUserResponseDto> {
+    this.assertOwnerOrAdmin(id, currentUser);
+    const user = await this.requireUser(id);
+    user.profilePic = validateAndEncodeProfilePicture(file);
+    await this.users.getEntityManager().flush();
+    return {
+      message: 'Profile picture updated successfully',
+      data: this.toPublicView(user),
+    };
+  }
+
+  async removeProfilePicture(
+    id: number,
+    currentUser: AuthenticatedUser,
+  ): Promise<UpdateUserResponseDto> {
+    this.assertOwnerOrAdmin(id, currentUser);
+    const user = await this.requireUser(id);
+    user.profilePic = undefined;
+    await this.users.getEntityManager().flush();
+    return {
+      message: 'Profile picture removed successfully',
+      data: this.toPublicView(user),
+    };
+  }
+
   async setStatus(
     id: number,
     action: 'suspended' | 'enabled' | 'admin',
+    currentUser?: AuthenticatedUser,
   ): Promise<UserAdminViewDto> {
+    if (currentUser && currentUser.ID === id) {
+      throw new ForbiddenException(
+        'You cannot change your own account status or role',
+      );
+    }
     const user = await this.requireUser(id);
     if (action === 'suspended') {
       user.suspendedTimes += 1;
@@ -128,7 +170,13 @@ export class UsersService {
     return this.toAdminView(user);
   }
 
-  async ban(id: number): Promise<{ message: string }> {
+  async ban(
+    id: number,
+    currentUser?: AuthenticatedUser,
+  ): Promise<{ message: string }> {
+    if (currentUser && currentUser.ID === id) {
+      throw new ForbiddenException('You cannot ban your own account');
+    }
     const user = await this.requireUser(id);
     user.banned = true;
     user.enabled = false;

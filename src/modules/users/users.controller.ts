@@ -4,17 +4,24 @@ import {
   Delete,
   ForbiddenException,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseIntPipe,
   Post,
   Put,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiBody,
   ApiConflictResponse,
+  ApiConsumes,
   ApiCreatedResponse,
   ApiExtraModels,
   ApiForbiddenResponse,
@@ -43,6 +50,7 @@ import {
   UserAdminViewDto,
   UserPublicViewDto,
 } from 'src/modules/users/dto/user-response.dto';
+import { type UploadedImageFile } from 'src/modules/users/profile-picture.util';
 import { UsersService } from 'src/modules/users/users.service';
 
 @ApiTags('users')
@@ -103,17 +111,67 @@ export class UsersController {
   ): Promise<UserAdminViewDto | UpdateUserResponseDto> {
     if (suspended) {
       this.assertAdmin(user);
-      return this.users.setStatus(id, 'suspended');
+      return this.users.setStatus(id, 'suspended', user);
     }
     if (enabled) {
       this.assertAdmin(user);
-      return this.users.setStatus(id, 'enabled');
+      return this.users.setStatus(id, 'enabled', user);
     }
     if (admin) {
       this.assertAdmin(user);
-      return this.users.setStatus(id, 'admin');
+      return this.users.setStatus(id, 'admin', user);
     }
     return this.users.update(id, user, input);
+  }
+
+  @Post(':ID/profile-picture')
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  @ApiOperation({
+    summary: 'Upload a profile picture (JPEG, PNG, WebP, or GIF up to 2 MB)',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['file'],
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @ApiOkResponse({ type: UpdateUserResponseDto })
+  @ApiBadRequestResponse({
+    description: 'Invalid image format or file exceeds 2 MB limit',
+  })
+  @ApiForbiddenResponse({ description: 'Not allowed to modify this user' })
+  @ApiNotFoundResponse({ description: 'User not found' })
+  uploadProfilePicture(
+    @Param('ID', ParseIntPipe) id: number,
+    @CurrentUser() user: AuthenticatedUser,
+    @UploadedFile() file?: UploadedImageFile,
+  ): Promise<UpdateUserResponseDto> {
+    console.log({ file });
+    return this.users.uploadProfilePicture(id, user, file);
+  }
+
+  @Delete(':ID/profile-picture')
+  @ApiOperation({ summary: 'Remove a user profile picture' })
+  @ApiOkResponse({ type: UpdateUserResponseDto })
+  @ApiForbiddenResponse({ description: 'Not allowed to modify this user' })
+  @ApiNotFoundResponse({ description: 'User not found' })
+  removeProfilePicture(
+    @Param('ID', ParseIntPipe) id: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<UpdateUserResponseDto> {
+    return this.users.removeProfilePicture(id, user);
   }
 
   @Delete(':ID')
@@ -123,8 +181,11 @@ export class UsersController {
   @ApiBadRequestResponse({ description: 'Invalid user ID' })
   @ApiForbiddenResponse({ description: 'Admin role required' })
   @ApiNotFoundResponse({ description: 'User not found' })
-  ban(@Param('ID', ParseIntPipe) id: number): Promise<{ message: string }> {
-    return this.users.ban(id);
+  ban(
+    @Param('ID', ParseIntPipe) id: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<{ message: string }> {
+    return this.users.ban(id, user);
   }
 
   @Get(':ID/favorites')

@@ -56,7 +56,7 @@ export class UpdateUserDto {
     typeof value === 'string' ? value.trim() : value,
   )
   @IsString()
-  @MaxLength(2048)
+  @MaxLength(2800000)
   profilePic?: string;
 
   @ApiPropertyOptional()

@@ -23,7 +23,7 @@ export class UserEntity extends BaseEntity<
   @Property({ unique: true })
   email!: string;
 
-  @Property({ nullable: true })
+  @Property({ type: 'text', nullable: true })
   profilePic?: string;
 
   @Property({ nullable: true, hidden: true })
