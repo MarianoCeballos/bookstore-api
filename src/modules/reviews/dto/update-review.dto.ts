@@ -1,6 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import {
   IsInt,
+  IsNotEmpty,
   IsOptional,
   IsString,
   MaxLength,
@@ -11,13 +13,21 @@ import {
 export class UpdateReviewDto {
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsString()
+  @IsNotEmpty()
   @MaxLength(20)
   title?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsString()
+  @IsNotEmpty()
   @MaxLength(255)
   review?: string;
 

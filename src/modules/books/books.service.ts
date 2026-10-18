@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@mikro-orm/nestjs';
+import { UniqueConstraintViolationException } from '@mikro-orm/core';
 import { EntityRepository, FilterQuery } from '@mikro-orm/postgresql';
 import { AuthorEntity } from 'src/core/entities/author.entity';
 import { BookEntity } from 'src/core/entities/book.entity';
@@ -32,19 +33,23 @@ export interface ReviewView {
   reports: number[];
 }
 
+/**
+ * Nullable optional columns are omitted from the response instead of being sent
+ * as `null`, which keeps the wire contract (`string`) unchanged.
+ */
 export interface BookView {
   ID: BookEntity['ID'];
   title: BookEntity['title'];
   description: BookEntity['description'];
   price: string;
-  image: BookEntity['image'];
+  image: string | undefined;
   authors: string[];
   categories: string[];
-  publisher: BookEntity['publisher'];
-  publishedDate: BookEntity['publishedDate'];
+  publisher: string | undefined;
+  publishedDate: string | undefined;
   pageCount: BookEntity['pageCount'];
   rating: number;
-  language: BookEntity['language'];
+  language: string | undefined;
   avgReadingTime: BookEntity['avgReadingTime'];
   soldCopies: BookEntity['soldCopies'];
   reviews: ReviewView[];
@@ -149,49 +154,37 @@ export class BooksService {
   }
 
   async create(input: CreateBookDto): Promise<{ message: string }> {
-    const title = input.title.trim().toLowerCase();
-    if (await this.books.findOne({ title: { $ilike: title } })) {
+    const title = input.title.trim();
+    const existingBook = await this.books.findOne({
+      title: { $ilike: escapeLike(title) },
+    });
+    if (existingBook) {
       throw new ConflictException('Book title already exists');
     }
-    const authors = await Promise.all(
-      input.authors.map((item) =>
-        this.authors
-          .findOne({ name: item.value.trim() })
-          .then(
-            (existing) =>
-              existing ?? this.authors.create({ name: item.value.trim() }),
-          ),
-      ),
-    );
-    const categories = await Promise.all(
-      input.categories.map((item) =>
-        this.categories
-          .findOne({ category: item.value.trim() })
-          .then(
-            (existing) =>
-              existing ??
-              this.categories.create({ category: item.value.trim() }),
-          ),
-      ),
-    );
+    const authors = await this.resolveAuthors(input.authors);
+    const categories = await this.resolveCategories(input.categories);
     const book = this.books.create({
       title,
       description: input.description.trim(),
       price: this.normalizePrice(input.price),
-      image: input.image,
-      publisher: input.publisher,
-      publishedDate: input.publishedDate,
+      image: input.image?.trim() || undefined,
+      publisher: input.publisher?.trim() || undefined,
+      publishedDate: input.publishedDate?.trim() || undefined,
       pageCount: input.pageCount,
-      language: input.language,
+      language: input.language?.trim() || undefined,
       rating: '0',
       avgReadingTime: this.readingTime(input.pageCount),
     });
     book.authors.add(authors);
     book.categories.add(categories);
-    await this.books
-      .getEntityManager()
-      .persist([...authors, ...categories, book])
-      .flush();
+    try {
+      await this.books
+        .getEntityManager()
+        .persist([...authors, ...categories, book])
+        .flush();
+    } catch (error) {
+      throw this.toConflictException(error);
+    }
     return { message: 'Book created successfully' };
   }
 
@@ -200,40 +193,108 @@ export class BooksService {
     if (!book) {
       throw new NotFoundException(`Book not found with id ${id}`);
     }
-    const authors = await Promise.all(
-      input.authors.map(async (item) => {
-        const name = item.value.trim();
-        return (
-          (await this.authors.findOne({ name })) ??
-          this.authors.create({ name })
-        );
-      }),
-    );
-    const categories = await Promise.all(
-      input.categories.map(async (item) => {
-        const category = item.value.trim();
-        return (
-          (await this.categories.findOne({ category })) ??
-          this.categories.create({ category })
-        );
-      }),
-    );
-    book.title = input.title.trim().toLowerCase();
+    const title = input.title.trim();
+    const duplicate = await this.books.findOne({
+      ID: { $ne: id },
+      title: { $ilike: escapeLike(title) },
+    });
+    if (duplicate) {
+      throw new ConflictException('Book title already exists');
+    }
+    const authors = await this.resolveAuthors(input.authors);
+    const categories = await this.resolveCategories(input.categories);
+    book.title = title;
     book.description = input.description.trim();
     book.price = this.normalizePrice(input.price);
-    book.image = input.image;
-    book.publisher = input.publisher;
-    book.publishedDate = input.publishedDate;
+    book.image = this.clearable(input.image);
+    book.publisher = this.clearable(input.publisher);
+    book.publishedDate = this.clearable(input.publishedDate);
     book.pageCount = input.pageCount;
-    book.language = input.language;
+    book.language = this.clearable(input.language);
     book.avgReadingTime = this.readingTime(input.pageCount);
     book.authors.set(authors);
     book.categories.set(categories);
-    await this.books
-      .getEntityManager()
-      .persist([...authors, ...categories, book])
-      .flush();
+    try {
+      await this.books
+        .getEntityManager()
+        .persist([...authors, ...categories, book])
+        .flush();
+    } catch (error) {
+      throw this.toConflictException(error);
+    }
     return { message: 'Book modified successfully' };
+  }
+
+  private async resolveAuthors(
+    items: CreateBookDto['authors'],
+  ): Promise<AuthorEntity[]> {
+    const uniqueNames = new Map<string, string>();
+    for (const item of items) {
+      const trimmed = item.value.trim();
+      if (trimmed && !uniqueNames.has(trimmed.toLowerCase())) {
+        uniqueNames.set(trimmed.toLowerCase(), trimmed);
+      }
+    }
+    return Promise.all(
+      Array.from(uniqueNames.values()).map(async (name) => {
+        const existing = await this.authors.findOne({
+          name: { $ilike: escapeLike(name) },
+        });
+        return existing ?? this.authors.create({ name });
+      }),
+    );
+  }
+
+  private async resolveCategories(
+    items: CreateBookDto['categories'],
+  ): Promise<CategoryEntity[]> {
+    const uniqueCategories = new Map<string, string>();
+    for (const item of items) {
+      const trimmed = item.value.trim();
+      if (trimmed && !uniqueCategories.has(trimmed.toLowerCase())) {
+        uniqueCategories.set(trimmed.toLowerCase(), trimmed);
+      }
+    }
+    return Promise.all(
+      Array.from(uniqueCategories.values()).map(async (category) => {
+        const existing = await this.categories.findOne({
+          category: { $ilike: escapeLike(category) },
+        });
+        return existing ?? this.categories.create({ category });
+      }),
+    );
+  }
+
+  /**
+   * An explicitly blank optional value is cleared with an explicit `null`,
+   * while an omitted field stays `undefined`. Both end up as `NULL` for these
+   * nullable columns, but the explicit `null` documents the intent instead of
+   * leaning on how the driver serialises `undefined`.
+   */
+  private clearable(value: string | undefined): string | null | undefined {
+    if (value === undefined) {
+      return undefined;
+    }
+    return value.trim() || null;
+  }
+
+  /**
+   * The case-insensitive unique indexes added in `Migration20261018120000` are
+   * the source of truth for duplicates, because the pre-checks above can race.
+   * Translate a unique-constraint failure into a 409 instead of letting the
+   * global filter answer 500.
+   */
+  private toConflictException(error: unknown): unknown {
+    if (!(error instanceof UniqueConstraintViolationException)) {
+      return error;
+    }
+    if (error.message.includes('authors_name_lower_unique')) {
+      return new ConflictException('Author name already exists');
+    }
+    if (error.message.includes('categories_category_lower_unique')) {
+      return new ConflictException('Category already exists');
+    }
+    return new ConflictException('Book title already exists');
   }
 
   async delete(id: number): Promise<{ message: string }> {
@@ -278,16 +339,16 @@ export class BooksService {
       title: book.title,
       description: book.description,
       price: this.normalizePrice(book.price),
-      image: book.image,
+      image: book.image ?? undefined,
       authors: book.authors.getItems().map((author) => author.name),
       categories: book.categories
         .getItems()
         .map((category) => category.category),
-      publisher: book.publisher,
-      publishedDate: book.publishedDate,
+      publisher: book.publisher ?? undefined,
+      publishedDate: book.publishedDate ?? undefined,
       pageCount: book.pageCount,
       rating: Number(book.rating ?? 0),
-      language: book.language,
+      language: book.language ?? undefined,
       avgReadingTime: book.avgReadingTime,
       soldCopies: book.soldCopies,
       reviews,

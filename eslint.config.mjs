@@ -32,4 +32,14 @@ export default defineConfig(
       ],
     },
   },
+  {
+    // Node scripts (for example `scripts/lint-changed.mjs`) run outside the
+    // TypeScript project, so they only need the Node globals.
+    files: ['**/*.{js,mjs,cjs}'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
 );

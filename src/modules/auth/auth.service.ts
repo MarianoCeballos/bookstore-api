@@ -18,6 +18,7 @@ import { EmailService } from 'src/modules/email/email.service';
 import { RegisterDto } from 'src/modules/auth/dto/register.dto';
 import { ResetPasswordDto } from 'src/modules/auth/dto/reset-password.dto';
 import { AuthResponseDto } from 'src/modules/auth/dto/auth-response.dto';
+import { validateProfilePicValue } from 'src/modules/users/profile-picture.util';
 
 @Injectable()
 export class AuthService {
@@ -43,7 +44,10 @@ export class AuthService {
       username,
       name: input.name.trim(),
       surname: input.surname.trim(),
-      profilePic: input.profilePic,
+      profilePic:
+        input.profilePic !== undefined
+          ? validateProfilePicValue(input.profilePic)
+          : undefined,
       passwordHash: await argon2.hash(input.password),
       role: this.adminEmails().includes(email) ? UserRole.ADMIN : UserRole.USER,
     });
@@ -166,7 +170,11 @@ export class AuthService {
     id: string,
     code: string,
   ): Promise<{ data: { resetToken: string }; message: string }> {
-    const user = await this.users.findOne({ ID: Number(id) });
+    const numericId = Number(id.trim());
+    if (!Number.isSafeInteger(numericId) || numericId < 1) {
+      throw new UnauthorizedException('Reset code is invalid or expired');
+    }
+    const user = await this.users.findOne({ ID: numericId });
     if (
       !user ||
       !user.resetCodeHash ||

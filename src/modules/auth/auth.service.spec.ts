@@ -88,4 +88,23 @@ describe('AuthService', () => {
       'Confirmation link is invalid or expired',
     );
   });
+
+  it('rejects non-numeric or invalid user IDs in confirmPasswordReset without querying DB', async () => {
+    const findOne = jest.fn();
+    const users = { findOne } as unknown as EntityRepository<UserEntity>;
+    const service = new AuthService(
+      users,
+      {} as unknown as JwtService,
+      {} as unknown as ConfigService,
+      {} as unknown as EmailService,
+    );
+
+    await expect(service.confirmPasswordReset('abc', '123456')).rejects.toThrow(
+      'Reset code is invalid or expired',
+    );
+    await expect(service.confirmPasswordReset('-5', '123456')).rejects.toThrow(
+      'Reset code is invalid or expired',
+    );
+    expect(findOne).not.toHaveBeenCalled();
+  });
 });
