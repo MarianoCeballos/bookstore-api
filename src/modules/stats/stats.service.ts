@@ -40,7 +40,7 @@ export class StatsService {
       books: books.map(({ ID, title, image, soldCopies }) => ({
         ID,
         title,
-        image,
+        image: image ?? undefined,
         soldCopies,
       })),
       categories: categories.map(({ ID, category, soldCopies }) => ({

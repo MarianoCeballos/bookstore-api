@@ -8,8 +8,14 @@ export class Migration20261017174027 extends Migration {
   }
 
   override async down(): Promise<void> {
+    // PostgreSQL truncates oversized values silently instead of failing, which
+    // would corrupt the base64 data URLs stored by the upload endpoint. Clear
+    // the affected rows before narrowing the column back to varchar(255).
     this.addSql(
-      `alter table "users" alter column "profile_pic" type varchar(255) using ("profile_pic"::varchar(255));`,
+      `update "users" set "profile_pic" = null where length("profile_pic") > 255;`,
+    );
+    this.addSql(
+      `alter table "users" alter column "profile_pic" type varchar(255);`,
     );
   }
 }

@@ -185,7 +185,7 @@ export class ReviewsService {
       book: {
         ID: review.book.ID,
         title: review.book.title,
-        image: review.book.image,
+        image: review.book.image ?? undefined,
       },
       user: {
         ID: review.user.ID,

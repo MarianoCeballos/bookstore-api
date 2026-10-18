@@ -25,13 +25,13 @@ export class BookEntity extends BaseEntity<'soldCopies'> {
   price!: string;
 
   @Property({ type: 'text', nullable: true })
-  image?: string;
+  image?: string | null;
 
   @Property({ nullable: true })
-  publisher?: string;
+  publisher?: string | null;
 
   @Property({ nullable: true })
-  publishedDate?: string;
+  publishedDate?: string | null;
 
   @Property({ nullable: true })
   pageCount?: number;
@@ -40,7 +40,7 @@ export class BookEntity extends BaseEntity<'soldCopies'> {
   rating?: string;
 
   @Property({ nullable: true })
-  language?: string;
+  language?: string | null;
 
   @Property({ nullable: true })
   avgReadingTime?: string;

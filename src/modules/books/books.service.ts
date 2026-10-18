@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@mikro-orm/nestjs';
+import { UniqueConstraintViolationException } from '@mikro-orm/core';
 import { EntityRepository, FilterQuery } from '@mikro-orm/postgresql';
 import { AuthorEntity } from 'src/core/entities/author.entity';
 import { BookEntity } from 'src/core/entities/book.entity';
@@ -32,19 +33,23 @@ export interface ReviewView {
   reports: number[];
 }
 
+/**
+ * Nullable optional columns are omitted from the response instead of being sent
+ * as `null`, which keeps the wire contract (`string`) unchanged.
+ */
 export interface BookView {
   ID: BookEntity['ID'];
   title: BookEntity['title'];
   description: BookEntity['description'];
   price: string;
-  image: BookEntity['image'];
+  image: string | undefined;
   authors: string[];
   categories: string[];
-  publisher: BookEntity['publisher'];
-  publishedDate: BookEntity['publishedDate'];
+  publisher: string | undefined;
+  publishedDate: string | undefined;
   pageCount: BookEntity['pageCount'];
   rating: number;
-  language: BookEntity['language'];
+  language: string | undefined;
   avgReadingTime: BookEntity['avgReadingTime'];
   soldCopies: BookEntity['soldCopies'];
   reviews: ReviewView[];
@@ -172,10 +177,14 @@ export class BooksService {
     });
     book.authors.add(authors);
     book.categories.add(categories);
-    await this.books
-      .getEntityManager()
-      .persist([...authors, ...categories, book])
-      .flush();
+    try {
+      await this.books
+        .getEntityManager()
+        .persist([...authors, ...categories, book])
+        .flush();
+    } catch (error) {
+      throw this.toConflictException(error);
+    }
     return { message: 'Book created successfully' };
   }
 
@@ -197,18 +206,22 @@ export class BooksService {
     book.title = title;
     book.description = input.description.trim();
     book.price = this.normalizePrice(input.price);
-    book.image = input.image?.trim() || undefined;
-    book.publisher = input.publisher?.trim() || undefined;
-    book.publishedDate = input.publishedDate?.trim() || undefined;
+    book.image = this.clearable(input.image);
+    book.publisher = this.clearable(input.publisher);
+    book.publishedDate = this.clearable(input.publishedDate);
     book.pageCount = input.pageCount;
-    book.language = input.language?.trim() || undefined;
+    book.language = this.clearable(input.language);
     book.avgReadingTime = this.readingTime(input.pageCount);
     book.authors.set(authors);
     book.categories.set(categories);
-    await this.books
-      .getEntityManager()
-      .persist([...authors, ...categories, book])
-      .flush();
+    try {
+      await this.books
+        .getEntityManager()
+        .persist([...authors, ...categories, book])
+        .flush();
+    } catch (error) {
+      throw this.toConflictException(error);
+    }
     return { message: 'Book modified successfully' };
   }
 
@@ -250,6 +263,37 @@ export class BooksService {
         return existing ?? this.categories.create({ category });
       }),
     );
+  }
+
+  /**
+   * `undefined` means "leave the column untouched": MikroORM drops `undefined`
+   * from the generated `UPDATE`, so an explicitly blank optional value has to
+   * clear the column with an explicit `null` instead.
+   */
+  private clearable(value: string | undefined): string | null | undefined {
+    if (value === undefined) {
+      return undefined;
+    }
+    return value.trim() || null;
+  }
+
+  /**
+   * The case-insensitive unique indexes added in `Migration20261018120000` are
+   * the source of truth for duplicates, because the pre-checks above can race.
+   * Translate a unique-constraint failure into a 409 instead of letting the
+   * global filter answer 500.
+   */
+  private toConflictException(error: unknown): unknown {
+    if (!(error instanceof UniqueConstraintViolationException)) {
+      return error;
+    }
+    if (error.message.includes('authors_name_lower_unique')) {
+      return new ConflictException('Author name already exists');
+    }
+    if (error.message.includes('categories_category_lower_unique')) {
+      return new ConflictException('Category already exists');
+    }
+    return new ConflictException('Book title already exists');
   }
 
   async delete(id: number): Promise<{ message: string }> {
@@ -294,16 +338,16 @@ export class BooksService {
       title: book.title,
       description: book.description,
       price: this.normalizePrice(book.price),
-      image: book.image,
+      image: book.image ?? undefined,
       authors: book.authors.getItems().map((author) => author.name),
       categories: book.categories
         .getItems()
         .map((category) => category.category),
-      publisher: book.publisher,
-      publishedDate: book.publishedDate,
+      publisher: book.publisher ?? undefined,
+      publishedDate: book.publishedDate ?? undefined,
       pageCount: book.pageCount,
       rating: Number(book.rating ?? 0),
-      language: book.language,
+      language: book.language ?? undefined,
       avgReadingTime: book.avgReadingTime,
       soldCopies: book.soldCopies,
       reviews,
