@@ -202,7 +202,7 @@ describe('BooksService', () => {
 
     expect(book.image).toBeNull();
     expect(book.language).toBeNull();
-    // Omitted keys stay `undefined`, which MikroORM skips in the UPDATE.
+    // Omitted keys stay `undefined` (the nullable columns end up as NULL).
     expect(book.publisher).toBeUndefined();
     expect(book.publishedDate).toBeUndefined();
   });

@@ -266,9 +266,10 @@ export class BooksService {
   }
 
   /**
-   * `undefined` means "leave the column untouched": MikroORM drops `undefined`
-   * from the generated `UPDATE`, so an explicitly blank optional value has to
-   * clear the column with an explicit `null` instead.
+   * An explicitly blank optional value is cleared with an explicit `null`,
+   * while an omitted field stays `undefined`. Both end up as `NULL` for these
+   * nullable columns, but the explicit `null` documents the intent instead of
+   * leaning on how the driver serialises `undefined`.
    */
   private clearable(value: string | undefined): string | null | undefined {
     if (value === undefined) {
