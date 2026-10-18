@@ -158,7 +158,6 @@ export class UsersController {
     @CurrentUser() user: AuthenticatedUser,
     @UploadedFile() file?: UploadedImageFile,
   ): Promise<UpdateUserResponseDto> {
-    console.log({ file });
     return this.users.uploadProfilePicture(id, user, file);
   }
 
